@@ -229,6 +229,9 @@
       start()실패: <span id="diag-startfail">0</span> |
       마지막 인식 텍스트: <span id="diag-lasttext">(없음)</span> | 마지막 에러: <span id="diag-lasterror">(없음)</span>
     </div>
+    <div style="padding:4px 16px;background:#0d0d0d;font-size:0.65rem;color:#555;border-top:1px solid #1a1a1a;">
+      📱 모바일 테스트 팁: HTTPS 접속 확인 · "동시 녹음" 체크 해제하고 STT만 먼저 테스트 · 위 진단정보에서 onresult가 오르는지 확인
+    </div>
   </div>
 
   <div class="caption-section">
@@ -450,7 +453,7 @@
   } else {
     recognition = new SpeechRecognition();
     recognition.continuous = true;
-    recognition.interimResults = false; // Android Chrome에서 interim 결과가 버그를 일으키는 경우가 있어 우선 꺼둠 (테스트 후 필요하면 되돌림)
+    recognition.interimResults = true; // 모바일에서 실시간 텍스트가 들어오려면 true가 필요함
     recognition.lang = langSelect.value;
     langSelect.onchange = () => recognition.lang = langSelect.value;
 
@@ -492,12 +495,13 @@
         restartCount++;
         sttStatus.textContent = `REC 중... (재시작 ${restartCount}회)`;
         setTimeout(() => {
+          if (!isListening) return;
           try { recognition.start(); }
           catch (e) {
             startFailCount++;
             document.getElementById('diag-startfail').textContent = `${startFailCount} (${e.name}: ${e.message})`;
           }
-        }, 2000); // 안드로이드는 재시작 텀이 너무 짧으면(예: 50ms) InvalidStateError로 재시작 자체가 실패할 수 있어 넉넉하게 둠
+        }, 800); // 모바일은 재시작 텀이 너무 짧으면 InvalidStateError로 재시작 자체가 실패할 수 있어 여유 있게 둠
       }
     };
 
@@ -1079,6 +1083,22 @@
       try {
         recordingStartTime = Date.now(); // 런닝타임 기준점 - 녹음 여부와 무관하게 항상 설정
         document.getElementById('recording-download-link').style.display = 'none';
+
+        const recordChecked = document.getElementById('chk-record').checked;
+        const selectedDeviceLabel = (() => {
+          const sel = document.getElementById('record-device-select');
+          return sel.options[sel.selectedIndex]?.textContent || '';
+        })();
+        const isRealMicRecording = recordChecked && !isVirtualDeviceLabel(selectedDeviceLabel);
+        if (isRealMicRecording) {
+          const proceed = confirm(
+            '⚠ "동시 녹음"이 켜져 있어요. 실제 마이크 하나만 있는 기기(특히 모바일)에서는 ' +
+            'STT와 녹음이 같은 마이크 채널을 동시에 쓰려다 STT 자체가 먹통이 될 수 있어요.\n\n' +
+            '계속 진행하시겠어요? ("취소"를 누르면 동시 녹음을 끄고 STT만 시작합니다)'
+          );
+          if (!proceed) document.getElementById('chk-record').checked = false;
+        }
+
         // 녹음을 먼저 시작한 뒤 Web Speech API를 실행 - 마이크 오디오 트랙 획득 성공률을 높이기 위한 순서
         if (document.getElementById('chk-record').checked) {
           await startRecording();
