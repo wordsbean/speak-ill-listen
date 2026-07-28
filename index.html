@@ -113,11 +113,28 @@
 
       .caption-list { flex: none; max-height: 45vh; }
       .word-panel { flex: none; max-height: 40vh; }
+
+      /* 설정 다 하고 STT 시작하면 컨트롤 영역 접어서 자막+단어현황이 화면을 꽉 채우게 */
+      #mobile-controls-toggle {
+        display: flex; align-items: center; justify-content: center;
+        position: fixed; top: 10px; right: 10px; z-index: 90;
+        width: 38px; height: 38px; border-radius: 50%; border: none;
+        background: #3b82f6; color: #fff; font-size: 1.1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,.35);
+      }
+      body.controls-collapsed .video-section { display: none; }
+      body.controls-collapsed .caption-section { min-height: 100vh; }
+      body.controls-collapsed .caption-list { max-height: 55vh; }
+      body.controls-collapsed .word-panel { max-height: 40vh; }
+    }
+    @media screen and (min-width: 721px) {
+      #mobile-controls-toggle { display: none; }
     }
   </style>
 </head>
 <body>
 
+<button id="mobile-controls-toggle">☰</button>
 <div class="app-container">
   <div class="video-section">
     <div class="mode-tabs">
@@ -125,6 +142,7 @@
       <div class="mode-tab" data-mode="local"><span class="tab-full">로컬 파일</span><span class="tab-icon">📁</span></div>
       <div class="mode-tab" data-mode="text"><span class="tab-full">텍스트 붙여넣기</span><span class="tab-icon">📄</span></div>
       <div class="mode-tab" data-mode="mic"><span class="tab-full">🎤 마이크로 말하기</span><span class="tab-icon">🎤</span></div>
+      <div class="mode-tab" data-mode="doc"><span class="tab-full">📄 문서(DOC/TXT/PDF)</span><span class="tab-icon">📄</span></div>
     </div>
     <div class="video-wrapper" id="video-wrapper">
       <iframe id="yt-player" src="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>
@@ -142,6 +160,13 @@
           <button id="btn-mic-test-inline" style="padding:9px 16px;">🎚 마이크 테스트</button>
           <button id="btn-stt-inline" class="btn-stt" style="padding:9px 16px;">STT 시작</button>
         </div>
+      </div>
+      <div id="doc-only-wrapper" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#111;padding:20px;">
+        <div style="font-size:3rem;">📄</div>
+        <div style="color:#ddd;font-size:1rem;text-align:center;">DOCX / TXT / PDF 파일을 올리면<br>문장 단위로 나눠서 자막처럼 쌓여요</div>
+        <label for="doc-file-input" class="file-label">문서 파일 선택</label>
+        <input type="file" id="doc-file-input" accept=".docx,.txt,.pdf" style="display:none;">
+        <div id="doc-status" style="color:#888;font-size:0.8rem;"></div>
       </div>
     </div>
     <div class="controls" id="controls-youtube">
@@ -194,13 +219,16 @@
   <div class="caption-section">
     <div class="caption-header">
       <span>실시간 자막 피드</span>
-      <span id="stt-status" class="caption-status">대기 중</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="btn-open-phrasebook" style="padding:4px 10px;font-size:0.72rem;background:#8b5cf6;">📖 회화DB (<span id="phrasebook-count">0</span>)</button>
+        <span id="stt-status" class="caption-status">대기 중</span>
+      </div>
     </div>
     <div style="padding:8px 20px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;font-size:0.72rem;color:#888;line-height:1.5;">
       ℹ️ 실시간 자막은 AI가 즉시 생성한 결과입니다. 일부 인식 오류가 있을 수 있으며, 녹음 파일을 Whisper로 후처리하면 더 정확한 자막을 얻을 수 있습니다.
     </div>
     <div class="caption-list" id="caption-list">
-      <div class="caption-item" style="border-left-color: #666;">
+      <div class="caption-item" id="initial-guide-item" style="border-left-color: #666;">
         <div class="caption-time">안내</div>
         <div class="caption-text">유튜브 URL / 로컬 파일 / 텍스트 붙여넣기 중 하나를 고른 뒤 시작하세요.</div>
       </div>
@@ -225,10 +253,42 @@
   <div id="dict-popup"></div>
 </div>
 
+<div id="phrasebook-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;">
+  <div style="background:#1e1e1e;border-radius:12px;padding:20px 22px;width:480px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="font-size:1.15rem;">📖 나의 회화DB</h3>
+      <button id="btn-close-phrasebook" style="background:none;padding:4px 8px;">✕</button>
+    </div>
+    <input type="text" id="phrasebook-search" placeholder="🔍 검색..." style="margin-bottom:10px;padding:9px 12px;border-radius:6px;border:1px solid #444;background:#2a2a2a;color:#fff;">
+    <div id="phrasebook-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid #333;">
+      <span id="phrasebook-total" style="font-size:0.75rem;color:#888;"></span>
+      <button id="btn-clear-phrasebook" style="background:#4b5563;font-size:0.75rem;padding:6px 10px;">🗑 회화DB 전체 삭제</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="data/translate.js"></script>
 <script>
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  // 첫 터치/클릭 순간 안내 문구 제거 (직접 지우는 게 아니라, 사용자가 상호작용하는 순간 사라지게)
+  function removeInitialGuideOnce() {
+    const guide = document.getElementById('initial-guide-item');
+    if (guide) guide.remove();
+    document.removeEventListener('touchstart', removeInitialGuideOnce);
+    document.removeEventListener('click', removeInitialGuideOnce);
+  }
+  document.addEventListener('touchstart', removeInitialGuideOnce, { once: true });
+  document.addEventListener('click', removeInitialGuideOnce, { once: true });
+
+  // 모바일 햄버거: 설정(컨트롤) 영역 접었다 펼쳤다
+  document.getElementById('mobile-controls-toggle').addEventListener('click', () => {
+    document.body.classList.toggle('controls-collapsed');
+  });
   let recognition = null;
   let isListening = false;
 
@@ -259,7 +319,8 @@
       document.getElementById('controls-local').style.display = currentMode === 'local' ? 'flex' : 'none';
       textInputWrapper.classList.toggle('active', currentMode === 'text');
       document.getElementById('mic-only-wrapper').style.display = currentMode === 'mic' ? 'flex' : 'none';
-      if (currentMode === 'text' || currentMode === 'mic') {
+      document.getElementById('doc-only-wrapper').style.display = currentMode === 'doc' ? 'flex' : 'none';
+      if (currentMode === 'text' || currentMode === 'mic' || currentMode === 'doc') {
         ytPlayer.style.display = 'none';
         localPlayer.style.display = 'none';
         localPlayer.pause();
@@ -299,13 +360,73 @@
   });
 
   /* ---------- 3. 텍스트 붙여넣기 모드 ---------- */
+  function splitIntoSentences(raw) {
+    return raw.split(/(?<=[.!?。！？])\s+|\n+/).map(s => s.trim()).filter(Boolean);
+  }
+
   document.getElementById('btn-submit-text').addEventListener('click', () => {
     const raw = textPasteArea.value.trim();
     if (!raw) return;
     // 문장 단위로 분리 (마침표/느낌표/물음표/줄바꿈 기준)
-    const sentences = raw.split(/(?<=[.!?。！？])\s+|\n+/).map(s => s.trim()).filter(Boolean);
-    sentences.forEach(s => processNewCaption(s));
+    splitIntoSentences(raw).forEach(s => processNewCaption(s));
     textPasteArea.value = '';
+  });
+
+  /* ---------- 문서(DOCX/TXT/PDF) 업로드 -> 텍스트 추출 -> 문장 단위 자막화 ---------- */
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  async function extractTextFromDocx(arrayBuffer) {
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return result.value;
+  }
+
+  async function extractTextFromPdf(arrayBuffer) {
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      fullText += content.items.map(item => item.str).join(' ') + '\n';
+    }
+    return fullText;
+  }
+
+  document.getElementById('doc-file-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const docStatus = document.getElementById('doc-status');
+    const ext = file.name.split('.').pop().toLowerCase();
+    docStatus.textContent = '📄 문서를 읽는 중...';
+
+    try {
+      let text = '';
+      if (ext === 'txt') {
+        text = await file.text();
+      } else if (ext === 'docx') {
+        if (!window.mammoth) throw new Error('docx 처리 라이브러리를 아직 불러오는 중이에요. 잠시 후 다시 시도해주세요.');
+        text = await extractTextFromDocx(await file.arrayBuffer());
+      } else if (ext === 'pdf') {
+        if (!window.pdfjsLib) throw new Error('pdf 처리 라이브러리를 아직 불러오는 중이에요. 잠시 후 다시 시도해주세요.');
+        text = await extractTextFromPdf(await file.arrayBuffer());
+      } else {
+        throw new Error('지원하지 않는 파일 형식이에요 (.docx, .txt, .pdf만 가능)');
+      }
+
+      const sentences = splitIntoSentences(text);
+      if (!sentences.length) { docStatus.textContent = '⚠ 문서에서 텍스트를 찾지 못했어요.'; return; }
+
+      // 한 번에 다 쏟아붓지 않고 순서대로 하나씩 - 번역 API 부하 방지 + 진행상황 표시
+      for (let i = 0; i < sentences.length; i++) {
+        docStatus.textContent = `📄 자막으로 변환 중... (${i + 1}/${sentences.length})`;
+        await processNewCaption(sentences[i]);
+      }
+      docStatus.textContent = `✅ 완료 (${sentences.length}개 문장)`;
+    } catch (err) {
+      console.error('문서 처리 실패:', err);
+      docStatus.textContent = '⚠ ' + err.message;
+    }
   });
 
   /* ---------- 4. Web Speech API (STT) ---------- */
@@ -342,17 +463,62 @@
       }
     };
 
+    let restartCount = 0;
     recognition.onend = () => {
       if (isListening) {
+        restartCount++;
+        sttStatus.textContent = `REC 중... (재시작 ${restartCount}회)`;
         setTimeout(() => { try { recognition.start(); } catch (e) {} }, 500);
       }
+    };
+
+    const ERROR_MESSAGES = {
+      'not-allowed': '⚠ 마이크 권한이 거부됐어요. 브라우저 설정에서 마이크 권한을 허용해주세요.',
+      'audio-capture': '⚠ 마이크를 찾을 수 없어요. 다른 앱이 마이크를 쓰고 있는지 확인해주세요.',
+      'network': '⚠ 네트워크 오류 - 음성인식 서버에 연결할 수 없어요. 인터넷 연결을 확인해주세요.',
+      'aborted': '⚠ 음성인식이 중단됐어요.',
+      'service-not-allowed': '⚠ 이 브라우저/환경에서는 음성인식 서비스를 쓸 수 없어요.',
     };
 
     recognition.onerror = (err) => {
       if (err.error === 'no-speech') return;
       console.warn('STT 상태:', err.error);
+      const msg = ERROR_MESSAGES[err.error] || `⚠ 음성인식 오류: ${err.error}`;
+      sttStatus.textContent = msg;
+      sttStatus.style.maxWidth = 'none';
+      const item = document.createElement('div');
+      item.className = 'caption-item';
+      item.style.borderLeftColor = '#ef4444';
+      item.innerHTML = `<div class="caption-time">시스템</div><div class="caption-text">${msg}</div>`;
+      captionList.appendChild(item);
+      captionList.scrollTop = captionList.scrollHeight;
     };
   }
+
+  /* ---------- 회화DB: 세션 넘어서도 계속 쌓이는 개인 회화첩 (localStorage) ---------- */
+  const PHRASEBOOK_KEY = 'speakilllisten_phrasebook';
+  const PhraseBook = {
+    getAll() {
+      try { return JSON.parse(localStorage.getItem(PHRASEBOOK_KEY) || '[]'); }
+      catch (e) { return []; }
+    },
+    add(entry) {
+      try {
+        const all = PhraseBook.getAll();
+        all.push(entry);
+        localStorage.setItem(PHRASEBOOK_KEY, JSON.stringify(all));
+      } catch (e) { console.warn('회화DB 저장 실패:', e); }
+    },
+    clear() {
+      localStorage.setItem(PHRASEBOOK_KEY, '[]');
+    },
+    search(query) {
+      const q = query.trim().toLowerCase();
+      const all = PhraseBook.getAll();
+      if (!q) return all;
+      return all.filter(e => e.original.toLowerCase().includes(q) || (e.translated || '').toLowerCase().includes(q));
+    },
+  };
 
   /* ---------- 5. 중복 자막 탐지 + 자동 번역 파이프라인 ---------- */
   const recentCaptions = []; // 최근 N개 원문 (정규화된 형태)
@@ -468,6 +634,13 @@
         record.translated = translated;
       } catch (e) { /* 번역 실패해도 자막 자체는 이미 표시됨 */ }
     }
+
+    // 회화DB에 누적 (세션이 끝나도 계속 남는 개인 회화첩)
+    PhraseBook.add({
+      original: text, translated: record.translated,
+      srcLang, tgtLang, savedAt: new Date().toISOString(),
+    });
+    renderPhraseBookCount();
   }
 
   function formatRunningTime(ms) {
@@ -646,6 +819,50 @@
     if (e.target.id === 'dict-popup-backdrop') e.currentTarget.classList.remove('show');
   });
 
+  /* ---------- 7.5 회화DB 모달 ---------- */
+  function renderPhraseBookCount() {
+    document.getElementById('phrasebook-count').textContent = PhraseBook.getAll().length;
+  }
+
+  function renderPhraseBookList(query) {
+    const listEl = document.getElementById('phrasebook-list');
+    const entries = PhraseBook.search(query || '').slice().reverse(); // 최신 게 위로
+    document.getElementById('phrasebook-total').textContent = `전체 ${PhraseBook.getAll().length}개 중 ${entries.length}개 표시`;
+    if (!entries.length) {
+      listEl.innerHTML = '<div style="color:#888;font-size:0.85rem;text-align:center;padding:20px;">저장된 회화가 없어요. STT로 자막이 쌓이면 자동으로 여기에 저장돼요.</div>';
+      return;
+    }
+    listEl.innerHTML = entries.map(e => `
+      <div style="background:#242424;padding:10px 14px;border-radius:8px;border-left:3px solid #8b5cf6;">
+        <div style="font-size:0.9rem;color:#eee;">${escapeHtml(e.original)}</div>
+        ${e.translated ? `<div style="font-size:0.8rem;color:#9ca3af;margin-top:3px;">${escapeHtml(e.translated)}</div>` : ''}
+        <div style="font-size:0.65rem;color:#666;margin-top:4px;">${new Date(e.savedAt).toLocaleString()}</div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('btn-open-phrasebook').addEventListener('click', () => {
+    document.getElementById('phrasebook-backdrop').style.display = 'flex';
+    document.getElementById('phrasebook-search').value = '';
+    renderPhraseBookList('');
+  });
+  document.getElementById('btn-close-phrasebook').addEventListener('click', () => {
+    document.getElementById('phrasebook-backdrop').style.display = 'none';
+  });
+  document.getElementById('phrasebook-backdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'phrasebook-backdrop') e.currentTarget.style.display = 'none';
+  });
+  document.getElementById('phrasebook-search').addEventListener('input', (e) => {
+    renderPhraseBookList(e.target.value);
+  });
+  document.getElementById('btn-clear-phrasebook').addEventListener('click', () => {
+    if (!confirm('회화DB를 전부 삭제할까요? 이 작업은 되돌릴 수 없어요.')) return;
+    PhraseBook.clear();
+    renderPhraseBookCount();
+    renderPhraseBookList('');
+  });
+  renderPhraseBookCount(); // 페이지 열자마자 이전 세션에서 쌓인 개수 표시
+
   /* ---------- 8. 마이크 레벨(VU) 미터 ---------- */
   let vuAudioCtx = null, vuAnalyser = null, vuAnimId = null, vuStream = null;
   async function startVuMeter() {
@@ -817,6 +1034,7 @@
         btnStt.classList.add('active');
         sttStatus.textContent = 'REC 중...';
         sttStatus.classList.add('live');
+        document.body.classList.add('controls-collapsed'); // 설정 끝났으니 모바일에서는 자막/단어현황만 보이게 접음
       } catch (e) { console.error('STT/녹음 시작 실패:', e); alert('시작 실패: ' + e.message); }
     } else {
       isListening = false;
