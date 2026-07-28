@@ -224,6 +224,10 @@
       <button id="btn-export-excel" style="padding:4px 8px;font-size:0.72rem;background:#217346;">📊 엑셀 내보내기</button>
       <span id="dup-count-label" style="margin-left:auto;">중복 제거: 0건</span>
     </div>
+    <div id="stt-diagnostic" style="padding:6px 16px;background:#0d0d0d;font-size:0.68rem;color:#666;font-family:monospace;border-top:1px solid #222;">
+      onresult 호출: <span id="diag-onresult">0</span> | onend 호출: <span id="diag-onend">0</span> |
+      마지막 인식 텍스트: <span id="diag-lasttext">(없음)</span> | 마지막 에러: <span id="diag-lasterror">(없음)</span>
+    </div>
   </div>
 
   <div class="caption-section">
@@ -450,10 +454,14 @@
     langSelect.onchange = () => recognition.lang = langSelect.value;
 
     let currentDiv = null;
+    let onresultCount = 0;
     recognition.onresult = (event) => {
+      onresultCount++;
+      document.getElementById('diag-onresult').textContent = onresultCount;
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const t = event.results[i][0].transcript.trim();
+        document.getElementById('diag-lasttext').textContent = `"${t}" (${event.results[i].isFinal ? 'final' : 'interim'})`;
         if (event.results[i].isFinal) {
           if (currentDiv) { currentDiv.remove(); currentDiv = null; }
           processNewCaption(t);
@@ -474,7 +482,10 @@
     };
 
     let restartCount = 0;
+    let onendCount = 0;
     recognition.onend = () => {
+      onendCount++;
+      document.getElementById('diag-onend').textContent = onendCount;
       if (isListening) {
         restartCount++;
         sttStatus.textContent = `REC 중... (재시작 ${restartCount}회)`;
@@ -491,6 +502,7 @@
     };
 
     recognition.onerror = (err) => {
+      document.getElementById('diag-lasterror').textContent = `${err.error} (${new Date().toLocaleTimeString()})`;
       if (err.error === 'no-speech') return;
       console.warn('STT 상태:', err.error);
       const msg = ERROR_MESSAGES[err.error] || `⚠ 음성인식 오류: ${err.error}`;
