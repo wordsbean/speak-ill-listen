@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Speak, I'll Listen. - Lingo Power | Real-time Speech • Translation • Vocabulary</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      background: #121212; color: #fff; height: 100vh; overflow: hidden;
+    }
+    .app-container { display: flex; height: 100vh; }
+
+    /* 좌측 비디오/텍스트 영역 */
+    .video-section { flex: 1.2; background: #000; display: flex; flex-direction: column; min-width: 0; }
+    .video-wrapper { position: relative; width: 100%; padding-top: 56.25%; background: #000; }
+    .video-wrapper iframe, .video-wrapper video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+    #text-input-wrapper {
+      position: absolute; inset: 0; display: none; flex-direction: column; padding: 14px; background: #000;
+    }
+    #text-input-wrapper.active { display: flex; }
+    #text-paste-area {
+      flex: 1; width: 100%; resize: none; background: #1a1a1a; color: #eee; border: 1px solid #333;
+      border-radius: 8px; padding: 12px; font-size: 0.95rem; line-height: 1.6; font-family: inherit;
+    }
+    #btn-submit-text { margin-top: 10px; align-self: flex-end; }
+
+    .mode-tabs { display: flex; gap: 6px; padding: 10px 16px 0; }
+    .mode-tab { padding: 7px 14px; border-radius: 6px 6px 0 0; background: #1e1e1e; color: #999; cursor: pointer; font-size: 0.85rem; border: 1px solid #333; border-bottom: none; }
+    .mode-tab.active { background: #000; color: #fff; font-weight: 700; }
+
+    .controls { padding: 12px 16px; display: flex; gap: 8px; background: #1e1e1e; border-top: 1px solid #333; flex-wrap: wrap; align-items: center; }
+    input[type="text"] { flex: 1; min-width: 180px; padding: 9px 12px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 0.85rem; outline: none; }
+    select { padding: 9px 10px; border-radius: 6px; background: #2a2a2a; color: #fff; border: 1px solid #444; font-size: 0.85rem; }
+    .file-label { padding: 9px 12px; border-radius: 6px; background: #8b5cf6; color: white; cursor: pointer; font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+    .file-label:hover { background: #7c3aed; }
+    button { padding: 9px 14px; border-radius: 6px; border: none; background: #3b82f6; color: white; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: background .2s; white-space: nowrap; }
+    button:hover { background: #2563eb; }
+    button.btn-stt { background: #10b981; }
+    button.btn-stt:hover { background: #059669; }
+    button.btn-stt.active { background: #ef4444; animation: pulse 1.5s infinite; }
+    button.btn-clear { background: #4b5563; }
+
+    .status-bar { padding: 6px 16px; background: #181818; font-size: 0.75rem; color: #888; border-top: 1px solid #2a2a2a; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+    .vu-meter { width: 100px; height: 10px; background: #2a2a2a; border-radius: 3px; overflow: hidden; border: 1px solid #333; }
+    .vu-meter-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444); transition: width .05s linear; }
+    .vu-label.silent { color: #ef4444; font-weight: 700; }
+
+    /* 우측 자막 피드 */
+    .caption-section { flex: 0.9; display: flex; flex-direction: column; border-left: 1px solid #2a2a2a; background: #181818; min-width: 0; }
+    .caption-header { padding: 14px 20px; background: #222; font-size: 1rem; font-weight: 700; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+    .caption-status { font-size: 0.75rem; padding: 4px 8px; border-radius: 12px; background: #333; color: #aaa; }
+    .caption-status.live { background: rgba(239,68,68,.2); color: #ef4444; border: 1px solid #ef4444; }
+
+    .caption-list { flex: 1.4; padding: 14px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+    .caption-item { background: #242424; padding: 10px 14px; border-radius: 8px; border-left: 4px solid #3b82f6; animation: slideIn .25s ease-out; }
+    .caption-time { font-size: 0.7rem; color: #888; margin-bottom: 3px; }
+    .caption-running { color: #10b981; font-weight: 600; }
+    .caption-text { font-size: 0.9rem; line-height: 1.5; color: #eee; word-break: break-word; }
+    .caption-text-tr { font-size: 0.82rem; line-height: 1.4; color: #9ca3af; margin-top: 4px; }
+    .caption-dup-badge { font-size: 0.65rem; color: #666; margin-left: 6px; }
+
+    /* 단어 현황 패널 */
+    .word-panel { flex: 1; border-top: 1px solid #2a2a2a; display: flex; flex-direction: column; min-height: 0; }
+    .word-panel-header { padding: 10px 20px; background: #202020; font-size: 0.85rem; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+    .word-panel-header select { font-size: 0.75rem; padding: 4px 6px; }
+    .word-list { flex: 1; overflow-y: auto; padding: 10px 20px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+    .word-chip { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 14px; padding: 4px 10px; font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+    .word-cloud-item { cursor: pointer; font-weight: 700; line-height: 1.3; padding: 2px 6px; transition: transform .15s; }
+    .word-cloud-item:hover { transform: scale(1.1); text-decoration: underline; }
+    .word-chip:hover { background: #333; border-color: #3b82f6; }
+    .word-chip .cnt { background: #3b82f6; color: #fff; border-radius: 8px; padding: 0 5px; font-size: 0.68rem; }
+
+    /* 사전 팝업 */
+    #dict-popup-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 300; align-items: center; justify-content: center;
+    }
+    #dict-popup-backdrop.show { display: flex; }
+    #dict-popup { background: #1e1e1e; border-radius: 12px; padding: 20px 22px; width: 380px; max-width: 90vw; max-height: 70vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+    #dict-popup h3 { font-size: 1.2rem; margin-bottom: 4px; }
+    #dict-popup .dict-phonetic { color: #9ca3af; font-size: 0.85rem; margin-bottom: 10px; }
+    #dict-popup .dict-meaning-block { margin-bottom: 10px; }
+    #dict-popup .dict-pos { color: #10b981; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+    #dict-popup .dict-def { font-size: 0.88rem; line-height: 1.5; margin-bottom: 4px; }
+    #dict-popup .dict-example { font-size: 0.8rem; color: #9ca3af; font-style: italic; }
+    #dict-popup .dict-close { float: right; background: none; padding: 4px 8px; }
+    #dict-popup .dict-loading, #dict-popup .dict-error { color: #9ca3af; font-size: 0.85rem; }
+
+    @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: .7; } 100% { opacity: 1; } }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="video-section">
+    <div class="mode-tabs">
+      <div class="mode-tab active" data-mode="youtube">유튜브</div>
+      <div class="mode-tab" data-mode="local">로컬 파일</div>
+      <div class="mode-tab" data-mode="text">텍스트 붙여넣기</div>
+      <div class="mode-tab" data-mode="mic">🎤 마이크로 말하기</div>
+    </div>
+    <div class="video-wrapper" id="video-wrapper">
+      <iframe id="yt-player" src="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      <video id="local-player" controls style="display:none;"></video>
+      <div id="text-input-wrapper">
+        <textarea id="text-paste-area" placeholder="여기에 텍스트를 붙여넣으세요. 문장 단위로 자동으로 나눠서 자막처럼 오른쪽에 쌓입니다."></textarea>
+        <button id="btn-submit-text">자막으로 변환 ▶</button>
+      </div>
+      <div id="mic-only-wrapper" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#111;">
+        <div style="font-size:3.5rem;">🎤</div>
+        <div style="color:#ddd;font-size:1rem;">영상/파일 없이, 마이크에 대고 바로 말씀하세요</div>
+        <div class="vu-meter" style="width:220px;height:14px;"><div class="vu-meter-bar" id="vu-meter-bar-inline"></div></div>
+        <div style="color:#888;font-size:0.8rem;" id="mic-only-status">🎚 "마이크 테스트"를 눌러 신호를 먼저 확인해보세요</div>
+        <div style="display:flex;gap:8px;">
+          <button id="btn-mic-test-inline" style="padding:9px 16px;">🎚 마이크 테스트</button>
+          <button id="btn-stt-inline" class="btn-stt" style="padding:9px 16px;">STT 시작</button>
+        </div>
+      </div>
+    </div>
+    <div class="controls" id="controls-youtube">
+      <input type="text" id="yt-url-input" placeholder="유튜브 URL 붙여넣기" />
+      <button id="btn-load">유튜브 로드</button>
+    </div>
+    <div class="controls" id="controls-local" style="display:none;">
+      <label for="file-input" class="file-label">영상/오디오 파일 선택</label>
+      <input type="file" id="file-input" accept="video/*,audio/*" style="display:none;">
+    </div>
+    <div class="controls">
+      <span style="font-size:0.8rem;color:#aaa;">🎙 인식 언어</span>
+      <select id="lang-select">
+        <option value="en-US" selected>English</option>
+        <option value="ko-KR">한국어</option>
+        <option value="ja-JP">日本語</option>
+      </select>
+      <span style="font-size:0.8rem;color:#aaa;">🌐 번역 언어</span>
+      <select id="tgt-lang-select">
+        <option value="ko" selected>한국어</option>
+        <option value="en">English</option>
+        <option value="ja">日本語</option>
+        <option value="zh">中文</option>
+        <option value="es">Español</option>
+        <option value="vi">Tiếng Việt</option>
+      </select>
+      <label style="font-size:0.8rem;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap;">
+        <input type="checkbox" id="chk-record">🎙 동시 녹음(WebM)
+      </label>
+      <select id="record-device-select" style="font-size:0.75rem;padding:6px;max-width:160px;">
+        <option value="">녹음 장치: 기본값</option>
+      </select>
+      <label style="font-size:0.75rem;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap;" title="유튜브/가상마이크(VB-Cable) 녹음 시 체크 유지 권장. 실제 육성 마이크로 녹음할 땐 해제해서 노이즈제거/에코캔슬을 켤 수 있어요.">
+        <input type="checkbox" id="chk-raw-audio" checked>🎚 원음 그대로(가상마이크용)
+      </label>
+      <button id="btn-stt" class="btn-stt">STT 시작</button>
+      <button id="btn-clear" class="btn-clear">비우기</button>
+      <a id="recording-download-link" style="display:none;padding:9px 14px;border-radius:6px;background:#8b5cf6;color:#fff;font-size:0.85rem;font-weight:600;text-decoration:none;">🎙 녹음 다운로드</a>
+    </div>
+    <div class="status-bar">
+      <span>입력 신호:</span>
+      <div class="vu-meter"><div class="vu-meter-bar" id="vu-meter-bar"></div></div>
+      <span class="vu-label" id="vu-label">-</span>
+      <button id="btn-mic-test" style="padding:4px 8px;font-size:0.72rem;">🎚 마이크 테스트</button>
+      <button id="btn-export-excel" style="padding:4px 8px;font-size:0.72rem;background:#217346;">📊 엑셀 내보내기</button>
+      <span id="dup-count-label" style="margin-left:auto;">중복 제거: 0건</span>
+    </div>
+  </div>
+
+  <div class="caption-section">
+    <div class="caption-header">
+      <span>실시간 자막 피드</span>
+      <span id="stt-status" class="caption-status">대기 중</span>
+    </div>
+    <div style="padding:8px 20px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;font-size:0.72rem;color:#888;line-height:1.5;">
+      ℹ️ 실시간 자막은 AI가 즉시 생성한 결과입니다. 일부 인식 오류가 있을 수 있으며, 녹음 파일을 Whisper로 후처리하면 더 정확한 자막을 얻을 수 있습니다.
+    </div>
+    <div class="caption-list" id="caption-list">
+      <div class="caption-item" style="border-left-color: #666;">
+        <div class="caption-time">안내</div>
+        <div class="caption-text">유튜브 URL / 로컬 파일 / 텍스트 붙여넣기 중 하나를 고른 뒤 시작하세요.</div>
+      </div>
+    </div>
+    <div class="word-panel">
+      <div class="word-panel-header">
+        <span>📊 단어 현황 (<span id="word-total-count">0</span>개)</span>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button id="btn-toggle-cloud" style="padding:3px 8px;font-size:0.7rem;">☁ 워드클라우드</button>
+          <select id="word-sort-select">
+            <option value="freq">빈도순</option>
+            <option value="abc">가나다순</option>
+          </select>
+        </div>
+      </div>
+      <div class="word-list" id="word-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="dict-popup-backdrop">
+  <div id="dict-popup"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="data/translate.js"></script>
+<script>
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let isListening = false;
+
+  const ytInput = document.getElementById('yt-url-input');
+  const btnLoad = document.getElementById('btn-load');
+  const fileInput = document.getElementById('file-input');
+  const btnStt = document.getElementById('btn-stt');
+  const btnClear = document.getElementById('btn-clear');
+
+  const ytPlayer = document.getElementById('yt-player');
+  const localPlayer = document.getElementById('local-player');
+  const textInputWrapper = document.getElementById('text-input-wrapper');
+  const textPasteArea = document.getElementById('text-paste-area');
+  const captionList = document.getElementById('caption-list');
+  const sttStatus = document.getElementById('stt-status');
+  const langSelect = document.getElementById('lang-select');
+  const tgtLangSelect = document.getElementById('tgt-lang-select');
+  const dupCountLabel = document.getElementById('dup-count-label');
+
+  /* ---------- 0. 입력 모드 탭 (유튜브 / 로컬 / 텍스트) ---------- */
+  let currentMode = 'youtube';
+  document.querySelectorAll('.mode-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentMode = tab.dataset.mode;
+      document.getElementById('controls-youtube').style.display = currentMode === 'youtube' ? 'flex' : 'none';
+      document.getElementById('controls-local').style.display = currentMode === 'local' ? 'flex' : 'none';
+      textInputWrapper.classList.toggle('active', currentMode === 'text');
+      document.getElementById('mic-only-wrapper').style.display = currentMode === 'mic' ? 'flex' : 'none';
+      if (currentMode === 'text' || currentMode === 'mic') {
+        ytPlayer.style.display = 'none';
+        localPlayer.style.display = 'none';
+        localPlayer.pause();
+      } else if (currentMode === 'youtube') {
+        ytPlayer.style.display = 'block';
+        localPlayer.style.display = 'none';
+        localPlayer.pause();
+      } else {
+        ytPlayer.style.display = 'none';
+      }
+    });
+  });
+
+  /* ---------- 1. 유튜브 로드 ---------- */
+  btnLoad.addEventListener('click', () => {
+    const url = ytInput.value.trim();
+    if (!url) return;
+    let videoId = '';
+    if (url.includes('v=')) videoId = url.split('v=')[1].split('&')[0];
+    else if (url.includes('youtu.be/')) videoId = url.split('youtu.be/')[1].split('?')[0];
+    else if (url.includes('embed/')) videoId = url.split('embed/')[1].split('?')[0];
+    if (!videoId) { alert('올바른 유튜브 URL을 입력해 주세요.'); return; }
+    localPlayer.pause(); localPlayer.style.display = 'none';
+    ytPlayer.style.display = 'block';
+    ytPlayer.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=1`;
+  });
+
+  /* ---------- 2. 로컬 파일 로드 ---------- */
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const fileURL = URL.createObjectURL(file);
+    ytPlayer.style.display = 'none'; ytPlayer.src = '';
+    localPlayer.style.display = 'block';
+    localPlayer.src = fileURL;
+    localPlayer.play();
+  });
+
+  /* ---------- 3. 텍스트 붙여넣기 모드 ---------- */
+  document.getElementById('btn-submit-text').addEventListener('click', () => {
+    const raw = textPasteArea.value.trim();
+    if (!raw) return;
+    // 문장 단위로 분리 (마침표/느낌표/물음표/줄바꿈 기준)
+    const sentences = raw.split(/(?<=[.!?。！？])\s+|\n+/).map(s => s.trim()).filter(Boolean);
+    sentences.forEach(s => processNewCaption(s));
+    textPasteArea.value = '';
+  });
+
+  /* ---------- 4. Web Speech API (STT) ---------- */
+  if (!SpeechRecognition) {
+    alert('Speech Recognition API를 지원하지 않는 브라우저입니다. Chrome을 사용해주세요.');
+  } else {
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = langSelect.value;
+    langSelect.onchange = () => recognition.lang = langSelect.value;
+
+    let currentDiv = null;
+    recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript.trim();
+        if (event.results[i].isFinal) {
+          if (currentDiv) { currentDiv.remove(); currentDiv = null; }
+          processNewCaption(t);
+        } else {
+          interim += t + ' ';
+        }
+      }
+      if (interim) {
+        if (!currentDiv) {
+          currentDiv = document.createElement('div');
+          currentDiv.className = 'caption-item';
+          currentDiv.style.borderLeftColor = '#f59e0b';
+          captionList.appendChild(currentDiv);
+        }
+        currentDiv.innerHTML = '<div class="caption-time">실시간...</div><div class="caption-text">' + interim + '</div>';
+        captionList.scrollTop = captionList.scrollHeight;
+      }
+    };
+
+    recognition.onend = () => {
+      if (isListening) {
+        setTimeout(() => { try { recognition.start(); } catch (e) {} }, 500);
+      }
+    };
+
+    recognition.onerror = (err) => {
+      if (err.error === 'no-speech') return;
+      console.warn('STT 상태:', err.error);
+    };
+  }
+
+  /* ---------- 5. 중복 자막 탐지 + 자동 번역 파이프라인 ---------- */
+  const recentCaptions = []; // 최근 N개 원문 (정규화된 형태)
+  const captionRecords = []; // 엑셀 내보내기용 전체 기록 {timeStr, runningStr, original, translated}
+  const dictionaryLookups = []; // 사전 조회 누적 {word, partOfSpeech, definition, example}
+  const RECENT_WINDOW = 8;
+  let dupCount = 0;
+
+  function normalizeForDup(text) {
+    return text.toLowerCase().replace(/[.,!?~…\-\s]+/g, ' ').trim();
+  }
+
+  // 레벤슈타인 기반 유사도(0~1). 완전히 새 라이브러리 없이 간단 구현.
+  function similarity(a, b) {
+    if (a === b) return 1;
+    if (!a.length || !b.length) return 0;
+    const dp = Array(a.length + 1).fill(null).map(() => Array(b.length + 1).fill(0));
+    for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+    for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+    const dist = dp[a.length][b.length];
+    return 1 - dist / Math.max(a.length, b.length);
+  }
+
+  // 단어 배열 기준 최장 공통 부분수열(LCS) 길이 - 중간에 몇 단어가 빠져도 순서만 같으면 잡아냄
+  function wordLCS(a, b) {
+    const dp = Array(a.length + 1).fill(null).map(() => Array(b.length + 1).fill(0));
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+    return dp[a.length][b.length];
+  }
+
+  function isDuplicate(text) {
+    const norm = normalizeForDup(text);
+    if (norm.length < 3) return false; // 너무 짧은 건 포함관계 체크가 오탐 나기 쉬워 제외
+    const words = norm.split(' ').filter(Boolean);
+    return recentCaptions.some(prev => {
+      if (similarity(norm, prev) >= 0.88) return true;
+      // 부분집합(꼬리 잘림) 체크: 새로 들어온 게 "더 짧고" 이미 나온 자막 안에 통째로 포함되면
+      // 그건 꼬리만 잘려 다시 인식된 조각일 가능성이 높아 중복으로 간주.
+      // (반대로 새 문장이 더 길면, 예전에 조각으로 잘못 나온 걸 이번에 온전하게 다시 말한 것일 수 있어
+      //  중복 처리하지 않음 - 완전한 문장을 실수로 버리는 걸 방지)
+      if (norm.length < prev.length && norm.length >= 4 && prev.includes(norm)) return true;
+      // 단어 순서상 공통 부분수열 비율 체크: 중간에 몇 단어가 빠진 채 재인식된 경우
+      // (예: "...parliament sparking widespread protests" -> "...parliament protests")
+      const prevWords = prev.split(' ').filter(Boolean);
+      if (words.length >= 4 && prevWords.length >= 4) {
+        const shorterLen = Math.min(words.length, prevWords.length);
+        const lcsLen = wordLCS(words, prevWords);
+        if (lcsLen / shorterLen >= 0.85) return true;
+      }
+      return false;
+    });
+  }
+
+  // STT가 짧은 잡음을 엉뚱한 단어로 인식해서 진짜 문장 앞에 붙여버리는 경우("Table One. The Supreme Court...")를
+  // 걸러냄: 첫 문장이 3단어/15자 이하로 너무 짧고, 뒤에 진짜 문장이 더 있으면 그 짧은 선행 조각을 제거.
+  function capitalizeFirstLetter(text) {
+    const trimmed = text.replace(/^\s+/, '');
+    const leadingSpace = text.slice(0, text.length - trimmed.length);
+    if (!trimmed) return text;
+    return leadingSpace + trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  }
+
+  function stripLeadingGarbageFragment(text) {
+    const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+    if (sentences.length < 2) return text;
+    const first = sentences[0].trim();
+    const wordCount = first.split(/\s+/).filter(Boolean).length;
+    if (wordCount <= 3 && first.length <= 15) {
+      return sentences.slice(1).join(' ');
+    }
+    return text;
+  }
+
+  async function processNewCaption(text) {
+    if (!text) return;
+    text = stripLeadingGarbageFragment(text);
+    if (!text) return;
+    text = capitalizeFirstLetter(text);
+    if (isDuplicate(text)) {
+      dupCount++;
+      dupCountLabel.textContent = `중복 제거: ${dupCount}건`;
+      return;
+    }
+    const norm = normalizeForDup(text);
+    recentCaptions.push(norm);
+    if (recentCaptions.length > RECENT_WINDOW) recentCaptions.shift();
+
+    const item = appendCaption(text);
+    updateWordStats(text);
+    const record = { timeStr: item.dataset.timeStr, runningStr: item.dataset.runningStr || '', original: text, translated: '' };
+    captionRecords.push(record);
+
+    // 자동 번역 (원문 언어 추정: STT 언어 select의 앞 2글자, 텍스트모드는 'auto' 취급 -> 'en' 기본)
+    // (참고: STT가 마침표/대문자를 항상 붙여주지 않아서, 문장부호 유무로 번역 여부를 거르지는 않음 - isFinal이면 그냥 번역)
+    const srcLang = (langSelect.value || 'en-US').split('-')[0];
+    const tgtLang = tgtLangSelect.value;
+    if (srcLang !== tgtLang && window.WordrootTranslate) {
+      try {
+        const translated = await WordrootTranslate.translate(text, tgtLang, srcLang);
+        const trEl = document.createElement('div');
+        trEl.className = 'caption-text-tr';
+        trEl.textContent = translated;
+        item.appendChild(trEl);
+        record.translated = translated;
+      } catch (e) { /* 번역 실패해도 자막 자체는 이미 표시됨 */ }
+    }
+  }
+
+  function formatRunningTime(ms) {
+    const totalSec = Math.max(0, Math.floor(ms / 1000));
+    const h = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+    const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+    const s = String(totalSec % 60).padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  }
+
+  function appendCaption(text) {
+    const now = new Date();
+    const timeStr = now.toTimeString().split(' ')[0];
+    const runningStr = recordingStartTime ? formatRunningTime(now.getTime() - recordingStartTime) : null;
+    const item = document.createElement('div');
+    item.className = 'caption-item';
+    item.dataset.timeStr = timeStr;
+    item.dataset.runningStr = runningStr || '';
+    item.innerHTML = `<div class="caption-time">${timeStr}${runningStr ? ` <span class="caption-running">▶ ${runningStr}</span>` : ''}</div><div class="caption-text">${escapeHtml(text)}</div>`;
+    captionList.appendChild(item);
+    captionList.scrollTop = captionList.scrollHeight;
+    return item;
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  /* ---------- 6. 단어 현황 패널 ---------- */
+  const wordCounts = new Map(); // word(lowercase) -> count
+  const STOPWORDS = new Set(['the','a','an','is','are','was','were','to','of','in','on','at','and','or','but','for','with','it','this','that','i','you','he','she','we','they','be','do','does','did','have','has','had','will','would','can','could','so','not','my','your','his','her','its','our','their','것','이','그','저','을','를','은','는','이다','있다']);
+
+  function updateWordStats(text) {
+    const tokens = text.toLowerCase().match(/[a-zA-Z']+|[가-힣]+/g) || [];
+    tokens.forEach(tok => {
+      if (tok.length < 2 || STOPWORDS.has(tok)) return;
+      wordCounts.set(tok, (wordCounts.get(tok) || 0) + 1);
+    });
+    renderWordList();
+  }
+
+  let cloudViewMode = false;
+
+  function renderWordList() {
+    const listEl = document.getElementById('word-list');
+    const sortMode = document.getElementById('word-sort-select').value;
+    let entries = [...wordCounts.entries()];
+    if (sortMode === 'freq') entries.sort((a, b) => b[1] - a[1]);
+    else entries.sort((a, b) => a[0].localeCompare(b[0]));
+
+    document.getElementById('word-total-count').textContent = entries.length;
+
+    if (cloudViewMode && entries.length) {
+      const counts = entries.map(e => e[1]);
+      const minC = Math.min(...counts), maxC = Math.max(...counts);
+      const cloudEntries = [...entries].sort(() => Math.random() - 0.5); // 클라우드 느낌 - 순서 섞기
+      listEl.style.justifyContent = 'center';
+      listEl.innerHTML = cloudEntries.map(([word, cnt]) => {
+        const ratio = maxC === minC ? 1 : (cnt - minC) / (maxC - minC);
+        const fontSize = 12 + ratio * 30; // 12px ~ 42px
+        const hue = 90 + Math.floor(Math.random() * 60); // 초록~연두 계열 랜덤
+        return `<span class="word-cloud-item" data-word="${word}" title="${cnt}회" style="font-size:${fontSize}px;color:hsl(${hue},45%,60%);">${word}</span>`;
+      }).join(' ');
+      listEl.querySelectorAll('.word-cloud-item').forEach(el => {
+        el.addEventListener('click', () => showDictionary(el.dataset.word));
+      });
+    } else {
+      listEl.style.justifyContent = 'flex-start';
+      listEl.innerHTML = entries.map(([word, cnt]) =>
+        `<div class="word-chip" data-word="${word}">${word}<span class="cnt">${cnt}</span></div>`
+      ).join('');
+      listEl.querySelectorAll('.word-chip').forEach(chip => {
+        chip.addEventListener('click', () => showDictionary(chip.dataset.word));
+      });
+    }
+  }
+  document.getElementById('word-sort-select').addEventListener('change', renderWordList);
+  document.getElementById('btn-toggle-cloud').addEventListener('click', () => {
+    cloudViewMode = !cloudViewMode;
+    document.getElementById('btn-toggle-cloud').textContent = cloudViewMode ? '📋 리스트 보기' : '☁ 워드클라우드';
+    renderWordList();
+  });
+
+  /* ---------- 엑셀 내보내기 (자막 시트 + 단어현황 시트) ---------- */
+  document.getElementById('btn-export-excel').addEventListener('click', () => {
+    if (!captionRecords.length) { alert('내보낼 자막이 없어요.'); return; }
+    if (!window.XLSX) { alert('엑셀 라이브러리를 아직 불러오는 중이에요. 잠시 후 다시 시도해주세요.'); return; }
+
+    const wb = XLSX.utils.book_new();
+
+    // 시트 1: 자막
+    const captionRows = [['현재시각', '런닝타임', '원문', '번역']];
+    captionRecords.forEach(r => captionRows.push([r.timeStr, r.runningStr, r.original, r.translated]));
+    const wsCaptions = XLSX.utils.aoa_to_sheet(captionRows);
+    wsCaptions['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 60 }, { wch: 60 }];
+    XLSX.utils.book_append_sheet(wb, wsCaptions, '자막');
+
+    // 시트 2: 단어현황
+    const wordRows = [['단어', '빈도']];
+    [...wordCounts.entries()].sort((a, b) => b[1] - a[1]).forEach(([w, c]) => wordRows.push([w, c]));
+    const wsWords = XLSX.utils.aoa_to_sheet(wordRows);
+    wsWords['!cols'] = [{ wch: 20 }, { wch: 8 }];
+    XLSX.utils.book_append_sheet(wb, wsWords, '단어현황');
+
+    // 시트 3: 사전조회
+    if (dictionaryLookups.length) {
+      const dictRows = [['단어', '품사', '정의', '예문']];
+      dictionaryLookups.forEach(d => dictRows.push([d.word, d.partOfSpeech, d.definition, d.example]));
+      const wsDict = XLSX.utils.aoa_to_sheet(dictRows);
+      wsDict['!cols'] = [{ wch: 16 }, { wch: 10 }, { wch: 50 }, { wch: 50 }];
+      XLSX.utils.book_append_sheet(wb, wsDict, '사전조회');
+    }
+
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    XLSX.writeFile(wb, `lingopower_captions_${ts}.xlsx`);
+  });
+
+  /* ---------- 7. 클릭 -> 사전 검색 ---------- */
+  async function showDictionary(word) {
+    const backdrop = document.getElementById('dict-popup-backdrop');
+    const popup = document.getElementById('dict-popup');
+    backdrop.classList.add('show');
+    popup.innerHTML = `<button class="dict-close" id="dict-close-btn">✕</button><div class="dict-loading">"${word}" 검색 중...</div>`;
+    document.getElementById('dict-close-btn').addEventListener('click', () => backdrop.classList.remove('show'));
+
+    // 영어 단어는 무료 사전 API, 그 외 언어는 외부 사전으로 링크 안내
+    const isEnglish = /^[a-zA-Z']+$/.test(word);
+    if (!isEnglish) {
+      popup.innerHTML = `
+        <button class="dict-close" id="dict-close-btn">✕</button>
+        <h3>${word}</h3>
+        <div class="dict-error">영어가 아닌 단어는 자동 사전 조회를 지원하지 않아요.<br>
+        <a href="https://ko.dict.naver.com/#/search?query=${encodeURIComponent(word)}" target="_blank" style="color:#3b82f6;">네이버 사전에서 찾아보기 →</a></div>
+      `;
+      document.getElementById('dict-close-btn').addEventListener('click', () => backdrop.classList.remove('show'));
+      return;
+    }
+
+    try {
+      const res = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word));
+      if (!res.ok) throw new Error('not found');
+      const data = await res.json();
+      let html = `<button class="dict-close" id="dict-close-btn">✕</button><h3>${data[0].word}</h3>`;
+      if (data.length > 1) {
+        html += `<div style="font-size:0.75rem;color:#9ca3af;margin-bottom:8px;">이 단어는 뜻이 서로 다른 어원을 가진 동철이의어예요 — 아래 ${data.length}가지 항목을 모두 표시해요.</div>`;
+      }
+      data.forEach((entry, idx) => {
+        const phonetic = entry.phonetic || (entry.phonetics.find(p => p.text) || {}).text || '';
+        if (data.length > 1) html += `<div style="font-weight:700;color:#10b981;margin-top:${idx ? '14px' : '0'};">항목 ${idx + 1}</div>`;
+        if (phonetic) html += `<div class="dict-phonetic">${phonetic}</div>`;
+        entry.meanings.slice(0, 3).forEach(m => {
+          html += `<div class="dict-meaning-block"><div class="dict-pos">${m.partOfSpeech}</div>`;
+          m.definitions.slice(0, 2).forEach(d => {
+            html += `<div class="dict-def">• ${d.definition}</div>`;
+            if (d.example) html += `<div class="dict-example">"${d.example}"</div>`;
+            dictionaryLookups.push({ word, partOfSpeech: m.partOfSpeech, definition: d.definition, example: d.example || '' });
+          });
+          html += `</div>`;
+        });
+      });
+      popup.innerHTML = html;
+      document.getElementById('dict-close-btn').addEventListener('click', () => backdrop.classList.remove('show'));
+    } catch (e) {
+      popup.innerHTML = `
+        <button class="dict-close" id="dict-close-btn">✕</button>
+        <h3>${word}</h3>
+        <div class="dict-error">사전에서 찾지 못했어요.<br>
+        <a href="https://www.merriam-webster.com/dictionary/${encodeURIComponent(word)}" target="_blank" style="color:#3b82f6;">Merriam-Webster에서 찾아보기 →</a></div>
+      `;
+      document.getElementById('dict-close-btn').addEventListener('click', () => backdrop.classList.remove('show'));
+    }
+  }
+  document.getElementById('dict-popup-backdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'dict-popup-backdrop') e.currentTarget.classList.remove('show');
+  });
+
+  /* ---------- 8. 마이크 레벨(VU) 미터 ---------- */
+  let vuAudioCtx = null, vuAnalyser = null, vuAnimId = null, vuStream = null;
+  async function startVuMeter() {
+    try {
+      vuStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      document.getElementById('vu-label').textContent = '마이크 권한 필요';
+      return;
+    }
+    vuAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = vuAudioCtx.createMediaStreamSource(vuStream);
+    vuAnalyser = vuAudioCtx.createAnalyser();
+    vuAnalyser.fftSize = 512;
+    source.connect(vuAnalyser);
+
+    const vuBar = document.getElementById('vu-meter-bar');
+    const vuBarInline = document.getElementById('vu-meter-bar-inline');
+    const vuLabel = document.getElementById('vu-label');
+    const micOnlyStatus = document.getElementById('mic-only-status');
+    const data = new Uint8Array(vuAnalyser.fftSize);
+    let silentFrames = 0;
+    function tick() {
+      vuAnalyser.getByteTimeDomainData(data);
+      let sumSq = 0;
+      for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sumSq += v * v; }
+      const rms = Math.sqrt(sumSq / data.length);
+      const pct = Math.min(100, Math.round(rms * 400));
+      vuBar.style.width = pct + '%';
+      if (vuBarInline) vuBarInline.style.width = pct + '%';
+      if (pct < 2) {
+        silentFrames++;
+        if (silentFrames > 30) {
+          vuLabel.textContent = '⚠ 무음'; vuLabel.classList.add('silent');
+          if (micOnlyStatus) micOnlyStatus.textContent = '⚠ 소리가 감지되지 않아요 - 마이크를 확인해주세요';
+        }
+      } else {
+        silentFrames = 0;
+        vuLabel.textContent = '신호 있음';
+        vuLabel.classList.remove('silent');
+        if (micOnlyStatus) micOnlyStatus.textContent = '🎙 신호가 감지되고 있어요';
+      }
+      vuAnimId = requestAnimationFrame(tick);
+    }
+    tick();
+  }
+  function stopVuMeter() {
+    if (vuAnimId) cancelAnimationFrame(vuAnimId);
+    vuAnimId = null;
+    if (vuStream) vuStream.getTracks().forEach(t => t.stop());
+    document.getElementById('vu-meter-bar').style.width = '0%';
+    document.getElementById('vu-label').textContent = '-';
+    document.getElementById('vu-label').classList.remove('silent');
+    const vuBarInline = document.getElementById('vu-meter-bar-inline');
+    if (vuBarInline) vuBarInline.style.width = '0%';
+    const micOnlyStatus = document.getElementById('mic-only-status');
+    if (micOnlyStatus) micOnlyStatus.textContent = '🎚 "마이크 테스트"를 눌러 신호를 먼저 확인해보세요';
+  }
+
+  /* ---------- 9. STT 시작/중지 + (선택) 동시 녹음 개선 버전 ---------- */
+  let recordingStartTime = null; // 런닝타임 기준점 (자막 세션 시작 시각) - 녹음 체크와 무관하게 항상 기록
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let recordStream = null;
+
+  // 마이크/가상장치(VB-Cable 등) 목록 채우기 - 권한을 한 번 받아야 장치 "이름"까지 보임
+  function isVirtualDeviceLabel(label) {
+    return /cable|virtual|vb-audio|voicemeeter/i.test(label || '');
+  }
+
+  async function populateRecordDeviceList() {
+    try {
+      const tmpStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      tmpStream.getTracks().forEach(t => t.stop()); // 이름 조회용으로만 잠깐 열었다 바로 닫음
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter(d => d.kind === 'audioinput');
+      const sel = document.getElementById('record-device-select');
+      sel.innerHTML = '<option value="">녹음 장치: 기본값</option>' +
+        audioInputs.map(d => `<option value="${d.deviceId}">${d.label || '(이름 없는 장치)'}</option>`).join('');
+
+      // 가상마이크(CABLE/Virtual 등) 장치가 목록에 있으면 자동으로 기본 선택 + 원음모드 자동 체크 + 동시녹음도 자동 켜기
+      const virtualDevice = audioInputs.find(d => isVirtualDeviceLabel(d.label));
+      if (virtualDevice) {
+        sel.value = virtualDevice.deviceId;
+        document.getElementById('chk-raw-audio').checked = true;
+        document.getElementById('chk-record').checked = true;
+      }
+    } catch (e) {
+      console.warn('장치 목록을 가져오지 못했어요:', e);
+    }
+  }
+  populateRecordDeviceList();
+  navigator.mediaDevices.addEventListener?.('devicechange', populateRecordDeviceList);
+
+  // 사용자가 장치를 직접 바꾸면, 그 장치가 가상마이크인지 실제마이크인지에 따라 원음모드 체크박스도 같이 자동 조정
+  document.getElementById('record-device-select').addEventListener('change', (e) => {
+    const sel = e.target;
+    const label = sel.options[sel.selectedIndex]?.textContent || '';
+    document.getElementById('chk-raw-audio').checked = isVirtualDeviceLabel(label);
+  });
+
+  async function startRecording() {
+    try {
+      const selectedDeviceId = document.getElementById('record-device-select').value;
+      const rawMode = document.getElementById('chk-raw-audio')?.checked ?? true;
+      // 노이즈제거/에코캔슬/자동게인은 "사람 목소리+실제 마이크" 전제로 만들어진 기능이라,
+      // VB-Cable처럼 시스템 소리를 그대로 흘려보내는 가상 장치에 걸면 소리를 노이즈로 착각해
+      // 억눌러버릴 수 있음 - 기본은 꺼둠(rawMode=true). 실제 마이크로 육성 녹음할 땐 체크 해제 권장.
+      recordStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: !rawMode, noiseSuppression: !rawMode, autoGainControl: !rawMode,
+          ...(selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {})
+        }
+      });
+      const audioTracks = recordStream.getAudioTracks();
+      if (audioTracks.length === 0 || !audioTracks[0].enabled) {
+        throw new Error('오디오 트랙을 가져올 수 없거나 비활성화되어 있습니다.');
+      }
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
+        .find(t => MediaRecorder.isTypeSupported(t)) || '';
+      mediaRecorder = new MediaRecorder(recordStream, mimeType ? { mimeType } : undefined);
+      recordedChunks = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.start(1000); // 1초마다 청크 - 중간에 끊겨도 최대한 복구 가능하게
+      console.log('녹음 정상 시작됨:', mimeType || '(기본 포맷)');
+    } catch (e) {
+      console.warn('녹음 시작 실패 (STT는 계속 진행됩니다):', e);
+      alert('녹음을 시작하지 못했습니다 (마이크 권한 또는 다른 앱의 마이크 점유 상태를 확인하세요). STT 자막은 계속 진행됩니다.\n' + e.message);
+      document.getElementById('chk-record').checked = false;
+    }
+  }
+
+  function stopRecording() {
+    if (!mediaRecorder) return;
+    const recorder = mediaRecorder; // stop 이벤트가 비동기로 나중에 발생하므로, 콜백 안에서 쓸 참조를 미리 잡아둠
+    recorder.addEventListener('stop', () => {
+      if (!recordedChunks.length) return;
+      const blob = new Blob(recordedChunks, { type: recorder.mimeType || 'audio/webm' });
+      if (blob.size === 0) {
+        alert('녹음 데이터 크기가 0바이트예요. 마이크가 실제로 소리를 받고 있는지 확인해주세요 (Windows: 마이크 속성 → 고급 탭 → "단독 사용 모드" 해제).');
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.getElementById('recording-download-link');
+      const ext = (recorder.mimeType || '').includes('ogg') ? 'ogg' : 'webm';
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      link.href = url;
+      link.download = `lingopower_recording_${ts}.${ext}`;
+      link.style.display = 'inline-block';
+      link.textContent = `🎙 녹음 다운로드 (${(blob.size / 1024 / 1024).toFixed(1)}MB)`;
+    }, { once: true });
+    if (recorder.state !== 'inactive') recorder.stop();
+    if (recordStream) recordStream.getTracks().forEach(t => t.stop());
+    mediaRecorder = null;
+  }
+
+  btnStt.addEventListener('click', async () => {
+    if (!recognition) return;
+    if (!isListening) {
+      try {
+        recordingStartTime = Date.now(); // 런닝타임 기준점 - 녹음 여부와 무관하게 항상 설정
+        document.getElementById('recording-download-link').style.display = 'none';
+        // 녹음을 먼저 시작한 뒤 Web Speech API를 실행 - 마이크 오디오 트랙 획득 성공률을 높이기 위한 순서
+        if (document.getElementById('chk-record').checked) {
+          await startRecording();
+        }
+        recognition.start();
+        isListening = true;
+        btnStt.textContent = 'STT 중지';
+        btnStt.classList.add('active');
+        sttStatus.textContent = 'REC 중...';
+        sttStatus.classList.add('live');
+      } catch (e) { console.error('STT/녹음 시작 실패:', e); alert('시작 실패: ' + e.message); }
+    } else {
+      isListening = false;
+      recognition.stop();
+      btnStt.textContent = 'STT 시작';
+      btnStt.classList.remove('active');
+      sttStatus.textContent = '대기 중';
+      sttStatus.classList.remove('live');
+      stopRecording();
+    }
+  });
+
+  // 🎚 마이크 신호 테스트 (STT와 별도 - 동시에 마이크를 두 번 잡으면 STT 자체가 막힐 수 있어 분리함)
+  let vuTesting = false;
+  document.getElementById('btn-mic-test').addEventListener('click', async () => {
+    if (!vuTesting) {
+      vuTesting = true;
+      document.getElementById('btn-mic-test').textContent = '🎚 테스트 중지';
+      await startVuMeter();
+    } else {
+      vuTesting = false;
+      document.getElementById('btn-mic-test').textContent = '🎚 마이크 테스트';
+      stopVuMeter();
+    }
+  });
+
+  // 마이크 전용 패널 안의 버튼들은 메인 버튼을 그대로 클릭해주는 프록시
+  document.getElementById('btn-mic-test-inline').addEventListener('click', () => {
+    document.getElementById('btn-mic-test').click();
+  });
+  document.getElementById('btn-stt-inline').addEventListener('click', () => {
+    document.getElementById('btn-stt').click();
+  });
+  // 메인 STT 버튼 상태(텍스트/active 여부)가 바뀔 때마다 마이크 전용 패널의 버튼도 자동으로 동기화
+  new MutationObserver(() => {
+    const inlineBtn = document.getElementById('btn-stt-inline');
+    inlineBtn.textContent = btnStt.textContent;
+    inlineBtn.classList.toggle('active', btnStt.classList.contains('active'));
+  }).observe(btnStt, { childList: true, attributes: true, attributeFilter: ['class'] });
+
+  btnClear.addEventListener('click', () => {
+    captionList.innerHTML = '';
+    recentCaptions.length = 0;
+    captionRecords.length = 0;
+    dupCount = 0;
+    dupCountLabel.textContent = '중복 제거: 0건';
+    wordCounts.clear();
+    renderWordList();
+  });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  }
+</script>
+</body>
+</html>
