@@ -468,7 +468,7 @@
       if (isListening) {
         restartCount++;
         sttStatus.textContent = `REC 중... (재시작 ${restartCount}회)`;
-        setTimeout(() => { try { recognition.start(); } catch (e) {} }, 500);
+        setTimeout(() => { try { recognition.start(); } catch (e) {} }, 50);
       }
     };
 
