@@ -202,6 +202,16 @@
       <label style="font-size:0.75rem;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap;" title="유튜브/가상마이크(VB-Cable) 녹음 시 체크 유지 권장. 실제 육성 마이크로 녹음할 땐 해제해서 노이즈제거/에코캔슬을 켤 수 있어요.">
         <input type="checkbox" id="chk-raw-audio" checked>🎚 원음 그대로(가상마이크용)
       </label>
+      <label style="font-size:0.75rem;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap;">
+        🔊 마이크 증폭
+        <select id="gain-boost-select" style="font-size:0.75rem;padding:6px;">
+          <option value="1">1x (기본)</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+          <option value="4">4x</option>
+        </select>
+      </label>
       <button id="btn-stt" class="btn-stt">STT 시작</button>
       <button id="btn-clear" class="btn-clear">비우기</button>
       <a id="recording-download-link" style="display:none;padding:9px 14px;border-radius:6px;background:#8b5cf6;color:#fff;font-size:0.85rem;font-weight:600;text-decoration:none;">🎙 녹음 다운로드</a>
@@ -963,6 +973,8 @@
     document.getElementById('chk-raw-audio').checked = isVirtualDeviceLabel(label);
   });
 
+  let gainAudioCtx = null; // 녹음용 게인부스트 오디오 컨텍스트 (정지할 때 같이 닫아줘야 함)
+
   async function startRecording() {
     try {
       const selectedDeviceId = document.getElementById('record-device-select').value;
@@ -980,9 +992,25 @@
       if (audioTracks.length === 0 || !audioTracks[0].enabled) {
         throw new Error('오디오 트랙을 가져올 수 없거나 비활성화되어 있습니다.');
       }
+
+      // 마이크 증폭(GainNode) - 선택한 배율만큼 볼륨을 키워서 녹음용 스트림으로 재구성
+      const gainValue = parseFloat(document.getElementById('gain-boost-select').value) || 1;
+      let streamForRecorder = recordStream;
+      if (gainValue !== 1) {
+        gainAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = gainAudioCtx.createMediaStreamSource(recordStream);
+        const gainNode = gainAudioCtx.createGain();
+        gainNode.gain.value = gainValue;
+        const destination = gainAudioCtx.createMediaStreamDestination();
+        source.connect(gainNode);
+        gainNode.connect(destination);
+        streamForRecorder = destination.stream;
+        console.log(`마이크 증폭 적용됨: ${gainValue}x`);
+      }
+
       const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
         .find(t => MediaRecorder.isTypeSupported(t)) || '';
-      mediaRecorder = new MediaRecorder(recordStream, mimeType ? { mimeType } : undefined);
+      mediaRecorder = new MediaRecorder(streamForRecorder, mimeType ? { mimeType } : undefined);
       recordedChunks = [];
       mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordedChunks.push(e.data); };
       mediaRecorder.start(1000); // 1초마다 청크 - 중간에 끊겨도 최대한 복구 가능하게
@@ -1015,6 +1043,7 @@
     }, { once: true });
     if (recorder.state !== 'inactive') recorder.stop();
     if (recordStream) recordStream.getTracks().forEach(t => t.stop());
+    if (gainAudioCtx) { gainAudioCtx.close().catch(() => {}); gainAudioCtx = null; }
     mediaRecorder = null;
   }
 
