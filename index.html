@@ -226,6 +226,7 @@
     </div>
     <div id="stt-diagnostic" style="padding:6px 16px;background:#0d0d0d;font-size:0.68rem;color:#666;font-family:monospace;border-top:1px solid #222;">
       onresult 호출: <span id="diag-onresult">0</span> | onend 호출: <span id="diag-onend">0</span> |
+      start()실패: <span id="diag-startfail">0</span> |
       마지막 인식 텍스트: <span id="diag-lasttext">(없음)</span> | 마지막 에러: <span id="diag-lasterror">(없음)</span>
     </div>
   </div>
@@ -449,7 +450,7 @@
   } else {
     recognition = new SpeechRecognition();
     recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.interimResults = false; // Android Chrome에서 interim 결과가 버그를 일으키는 경우가 있어 우선 꺼둠 (테스트 후 필요하면 되돌림)
     recognition.lang = langSelect.value;
     langSelect.onchange = () => recognition.lang = langSelect.value;
 
@@ -483,13 +484,20 @@
 
     let restartCount = 0;
     let onendCount = 0;
+    let startFailCount = 0;
     recognition.onend = () => {
       onendCount++;
       document.getElementById('diag-onend').textContent = onendCount;
       if (isListening) {
         restartCount++;
         sttStatus.textContent = `REC 중... (재시작 ${restartCount}회)`;
-        setTimeout(() => { try { recognition.start(); } catch (e) {} }, 50);
+        setTimeout(() => {
+          try { recognition.start(); }
+          catch (e) {
+            startFailCount++;
+            document.getElementById('diag-startfail').textContent = `${startFailCount} (${e.name}: ${e.message})`;
+          }
+        }, 2000); // 안드로이드는 재시작 텀이 너무 짧으면(예: 50ms) InvalidStateError로 재시작 자체가 실패할 수 있어 넉넉하게 둠
       }
     };
 
@@ -623,7 +631,7 @@
     return text;
   }
 
-  async function processNewCaption(text) {
+  function processNewCaption(text) {
     if (!text) return;
     text = stripLeadingGarbageFragment(text);
     if (!text) return;
@@ -642,6 +650,12 @@
     const record = { timeStr: item.dataset.timeStr, runningStr: item.dataset.runningStr || '', original: text, translated: '' };
     captionRecords.push(record);
 
+    // 번역은 별도 비동기 작업으로 완전히 분리 - processNewCaption 자신은 여기서 바로 반환됨.
+    // (모바일에서 번역 API 응답을 기다리는 동안 STT 이벤트 처리가 밀리는 것을 방지하기 위함)
+    translateCaptionAsync(text, item, record);
+  }
+
+  async function translateCaptionAsync(text, item, record) {
     // 자동 번역 (원문 언어 추정: STT 언어 select의 앞 2글자, 텍스트모드는 'auto' 취급 -> 'en' 기본)
     // (참고: STT가 마침표/대문자를 항상 붙여주지 않아서, 문장부호 유무로 번역 여부를 거르지는 않음 - isFinal이면 그냥 번역)
     const srcLang = (langSelect.value || 'en-US').split('-')[0];
