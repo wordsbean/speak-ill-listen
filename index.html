@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Speak, I'll Listen. - Lingo Power | Real-time Speech • Translation • Vocabulary</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -43,7 +44,7 @@
     button.btn-stt.active { background: #ef4444; animation: pulse 1.5s infinite; }
     button.btn-clear { background: #4b5563; }
 
-    .status-bar { padding: 6px 16px; background: #181818; font-size: 0.75rem; color: #888; border-top: 1px solid #2a2a2a; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+    .status-bar { padding: 6px 16px; background: #181818; font-size: 0.75rem; color: #fff; border-top: 1px solid #2a2a2a; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
     .vu-meter { width: 100px; height: 10px; background: #2a2a2a; border-radius: 3px; overflow: hidden; border: 1px solid #333; }
     .vu-meter-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444); transition: width .05s linear; }
     .vu-label.silent { color: #ef4444; font-weight: 700; }
@@ -92,10 +93,13 @@
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: .7; } 100% { opacity: 1; } }
 
     /* ---------- 반응형 (모바일) ---------- */
-    .tab-icon { display: none; }
+    .tab-icon-fa { margin-right: 6px; }
 
     /* ---------- 중간 크기 화면(작은 노트북) - 완전 모바일은 아니지만 컨트롤이 다 못 들어가는 경우 ---------- */
     @media screen and (max-width: 1300px) {
+      body { overflow-y: auto; height: auto; min-height: 100vh; }
+      .app-container { height: auto; min-height: 100vh; }
+      .video-section { min-height: 500px; }
       .controls, .status-bar { font-size: 0.78rem; gap: 6px; }
       .controls select, .controls button, .controls label, .controls input[type="text"] { font-size: 0.78rem !important; padding: 7px 9px !important; }
       #stt-diagnostic, #stt-diagnostic + div { white-space: normal; word-break: break-word; }
@@ -112,7 +116,7 @@
 
       .mode-tab { flex: 1; text-align: center; padding: 8px 4px; }
       .tab-full { display: none; }
-      .tab-icon { display: inline; font-size: 1.3rem; }
+      .tab-icon-fa { font-size: 1.2rem; margin-right: 0; }
 
       .controls { padding: 10px 12px; }
       .controls input[type="text"] { min-width: 0; flex: 1 1 100%; }
@@ -145,11 +149,11 @@
 <div class="app-container">
   <div class="video-section">
     <div class="mode-tabs">
-      <div class="mode-tab active" data-mode="youtube"><span class="tab-full">유튜브</span><span class="tab-icon">📺</span></div>
-      <div class="mode-tab" data-mode="local"><span class="tab-full">로컬 파일</span><span class="tab-icon">📁</span></div>
-      <div class="mode-tab" data-mode="text"><span class="tab-full">텍스트 붙여넣기</span><span class="tab-icon">📄</span></div>
-      <div class="mode-tab" data-mode="mic"><span class="tab-full">🎤 마이크로 말하기</span><span class="tab-icon">🎤</span></div>
-      <div class="mode-tab" data-mode="doc"><span class="tab-full">📄 문서(DOC/TXT/PDF)</span><span class="tab-icon">📄</span></div>
+      <div class="mode-tab active" data-mode="youtube"><i class="fab fa-youtube tab-icon-fa"></i><span class="tab-full">유튜브</span></div>
+      <div class="mode-tab" data-mode="local"><i class="fas fa-folder-open tab-icon-fa"></i><span class="tab-full">로컬 파일</span></div>
+      <div class="mode-tab" data-mode="text"><i class="fas fa-clipboard tab-icon-fa"></i><span class="tab-full">텍스트 붙여넣기</span></div>
+      <div class="mode-tab" data-mode="mic"><i class="fas fa-microphone tab-icon-fa"></i><span class="tab-full">마이크로 말하기</span></div>
+      <div class="mode-tab" data-mode="doc"><i class="fas fa-file-lines tab-icon-fa"></i><span class="tab-full">문서(DOC/TXT/PDF)</span></div>
     </div>
     <div class="video-wrapper" id="video-wrapper">
       <iframe id="yt-player" src="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>
@@ -256,12 +260,12 @@
       <button id="btn-export-excel" style="padding:4px 8px;font-size:0.72rem;background:#217346;">📊 엑셀 내보내기</button>
       <span id="dup-count-label" style="margin-left:auto;">중복 제거: 0건</span>
     </div>
-    <div id="stt-diagnostic" style="padding:6px 16px;background:#0d0d0d;font-size:0.68rem;color:#666;font-family:monospace;border-top:1px solid #222;">
+    <div id="stt-diagnostic" style="padding:6px 16px;background:#0d0d0d;font-size:0.68rem;color:#fff;font-family:monospace;border-top:1px solid #222;">
       onresult 호출: <span id="diag-onresult">0</span> | onend 호출: <span id="diag-onend">0</span> |
       start()실패: <span id="diag-startfail">0</span> |
       마지막 인식 텍스트: <span id="diag-lasttext">(없음)</span> | 마지막 에러: <span id="diag-lasterror">(없음)</span>
     </div>
-    <div style="padding:4px 16px;background:#0d0d0d;font-size:0.65rem;color:#555;border-top:1px solid #1a1a1a;">
+    <div style="padding:4px 16px;background:#0d0d0d;font-size:0.65rem;color:#fff;border-top:1px solid #1a1a1a;">
       📱 모바일 테스트 팁: HTTPS 접속 확인 · "동시 녹음" 체크 해제하고 STT만 먼저 테스트 · 위 진단정보에서 onresult가 오르는지 확인
     </div>
   </div>
