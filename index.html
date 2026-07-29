@@ -94,6 +94,13 @@
     /* ---------- 반응형 (모바일) ---------- */
     .tab-icon { display: none; }
 
+    /* ---------- 중간 크기 화면(작은 노트북) - 완전 모바일은 아니지만 컨트롤이 다 못 들어가는 경우 ---------- */
+    @media screen and (max-width: 1300px) {
+      .controls, .status-bar { font-size: 0.78rem; gap: 6px; }
+      .controls select, .controls button, .controls label, .controls input[type="text"] { font-size: 0.78rem !important; padding: 7px 9px !important; }
+      #stt-diagnostic, #stt-diagnostic + div { white-space: normal; word-break: break-word; }
+    }
+
     @media screen and (max-width: 720px) {
       body { overflow-y: auto; height: auto; min-height: 100vh; }
       .app-container { flex-direction: column; height: auto; min-height: 100vh; }
