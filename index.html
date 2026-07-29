@@ -237,6 +237,7 @@
         </select>
       </label>
       <button id="btn-stt" class="btn-stt">STT 시작</button>
+      <button id="btn-record-only" style="background:#8b5cf6;">🔴 녹음만 시작 (STT 없이)</button>
       <button id="btn-clear" class="btn-clear">비우기</button>
       <a id="recording-download-link" style="display:none;padding:9px 14px;border-radius:6px;background:#8b5cf6;color:#fff;font-size:0.85rem;font-weight:600;text-decoration:none;">🎙 녹음 다운로드</a>
     </div>
@@ -604,6 +605,7 @@
     recognition.onresult = (event) => {
       onresultCount++;
       document.getElementById('diag-onresult').textContent = onresultCount;
+      consecutiveErrorCount = 0; // 결과가 들어온다는 건 연결이 살아있다는 뜻 - 백오프 초기화
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const t = event.results[i][0].transcript.trim();
@@ -630,12 +632,14 @@
     let restartCount = 0;
     let onendCount = 0;
     let startFailCount = 0;
+    let consecutiveErrorCount = 0; // 연속 에러 횟수 - 계속 실패하면 재시작 간격을 점점 늘림(백오프)
     recognition.onend = () => {
       onendCount++;
       document.getElementById('diag-onend').textContent = onendCount;
       if (isListening) {
         restartCount++;
-        sttStatus.textContent = `REC 중... (재시작 ${restartCount}회)`;
+        const backoffDelay = Math.min(800 * (consecutiveErrorCount + 1), 5000); // 800ms ~ 최대 5초
+        sttStatus.textContent = `REC 중... (재시작 ${restartCount}회${consecutiveErrorCount > 0 ? `, 대기 ${(backoffDelay/1000).toFixed(1)}s` : ''})`;
         setTimeout(() => {
           if (!isListening) return;
           try { recognition.start(); }
@@ -643,7 +647,7 @@
             startFailCount++;
             document.getElementById('diag-startfail').textContent = `${startFailCount} (${e.name}: ${e.message})`;
           }
-        }, 800); // 모바일은 재시작 텀이 너무 짧으면 InvalidStateError로 재시작 자체가 실패할 수 있어 여유 있게 둠
+        }, backoffDelay);
       }
     };
 
@@ -658,16 +662,28 @@
     recognition.onerror = (err) => {
       document.getElementById('diag-lasterror').textContent = `${err.error} (${new Date().toLocaleTimeString()})`;
       if (err.error === 'no-speech') return;
+      consecutiveErrorCount++; // 연속 실패 - 다음 재시작은 백오프로 더 기다림
       console.warn('STT 상태:', err.error);
       const msg = ERROR_MESSAGES[err.error] || `⚠ 음성인식 오류: ${err.error}`;
       sttStatus.textContent = msg;
       sttStatus.style.maxWidth = 'none';
-      const item = document.createElement('div');
-      item.className = 'caption-item';
-      item.style.borderLeftColor = '#ef4444';
-      item.innerHTML = `<div class="caption-time">시스템</div><div class="caption-text">${msg}</div>`;
-      captionList.appendChild(item);
-      captionList.scrollTop = captionList.scrollHeight;
+
+      // 같은 에러가 연속으로 반복되면 새 줄을 계속 쌓지 않고, 기존 항목의 반복 횟수만 갱신
+      const lastErrorItem = captionList.querySelector('.caption-item[data-error-msg]:last-child');
+      if (lastErrorItem && lastErrorItem.dataset.errorMsg === msg) {
+        const repeatCount = parseInt(lastErrorItem.dataset.repeatCount || '1', 10) + 1;
+        lastErrorItem.dataset.repeatCount = repeatCount;
+        lastErrorItem.querySelector('.caption-text').textContent = `${msg} (${repeatCount}회 연속)`;
+      } else {
+        const item = document.createElement('div');
+        item.className = 'caption-item';
+        item.dataset.errorMsg = msg;
+        item.dataset.repeatCount = '1';
+        item.style.borderLeftColor = '#ef4444';
+        item.innerHTML = `<div class="caption-time">시스템</div><div class="caption-text">${msg}</div>`;
+        captionList.appendChild(item);
+        captionList.scrollTop = captionList.scrollHeight;
+      }
     };
   }
 
@@ -1128,6 +1144,10 @@
         sel.value = virtualDevice.deviceId;
         document.getElementById('chk-raw-audio').checked = true;
         document.getElementById('chk-record').checked = true;
+      } else {
+        // 가상마이크가 없으면(실제 마이크만 있으면) 원음모드를 꺼서 노이즈제거/에코캔슬이 기본으로 켜지게 함
+        // (HTML에는 이 체크박스가 기본으로 checked라, 여기서 명시적으로 꺼주지 않으면 실제 마이크에서도 계속 노이즈제거가 꺼진 채로 남아있었음)
+        document.getElementById('chk-raw-audio').checked = false;
       }
     } catch (e) {
       console.warn('장치 목록을 가져오지 못했어요:', e);
@@ -1349,9 +1369,41 @@
       recognition.stop();
       btnStt.textContent = 'STT 시작';
       btnStt.classList.remove('active');
-      sttStatus.textContent = '대기 중';
       sttStatus.classList.remove('live');
       stopRecording();
+      confirmMicOff();
+    }
+  });
+
+  // STT/녹음 종료 시 마이크가 확실히 꺼졌다는 걸 화면에 명확히 표시 (마이크 테스트가 켜져 있었으면 그것도 같이 정리)
+  function confirmMicOff() {
+    if (typeof vuTesting !== 'undefined' && vuTesting) {
+      vuTesting = false;
+      document.getElementById('btn-mic-test').textContent = '🎚 마이크 테스트';
+      stopVuMeter();
+    }
+    sttStatus.textContent = '🎤 마이크 종료됨';
+    setTimeout(() => { if (!isListening && !isRecordingOnly) sttStatus.textContent = '대기 중'; }, 1500);
+  }
+
+  // 🔴 녹음만 시작 (STT 없이) - 네트워크가 불안정해서 실시간 STT가 힘들 때, 일단 녹음만이라도 확실하게
+  let isRecordingOnly = false;
+  document.getElementById('btn-record-only').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-record-only');
+    if (!isRecordingOnly) {
+      recordingStartTime = Date.now();
+      document.getElementById('recording-download-link').style.display = 'none';
+      await startRecording();
+      isRecordingOnly = true;
+      btn.textContent = '⏹ 녹음 중지';
+      btn.style.background = '#ef4444';
+      sttStatus.textContent = '🔴 녹음 중 (STT 없음)';
+    } else {
+      stopRecording();
+      isRecordingOnly = false;
+      btn.textContent = '🔴 녹음만 시작 (STT 없이)';
+      btn.style.background = '#8b5cf6';
+      confirmMicOff();
     }
   });
 
