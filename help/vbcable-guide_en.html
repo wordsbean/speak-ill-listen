@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VB-Cable Setup Guide - Use System Audio as a Microphone</title>
+<style>
+  :root {
+    --bg: #0d0f0e;
+    --panel: #161917;
+    --panel-2: #1e2220;
+    --line: #2a2f2c;
+    --text: #e8ece9;
+    --text-dim: #93a099;
+    --accent: #4fd1a5;
+    --accent-dim: #2a5f4c;
+    --blue: #5b9bd5;
+    --amber: #e0a94e;
+    --danger: #e06a6a;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 0 24px 100px; }
+
+  /* ---------- Hero: signal flow diagram ---------- */
+  .hero {
+    padding: 64px 24px 48px; text-align: center; border-bottom: 1px solid var(--line);
+    background: radial-gradient(ellipse at 50% -10%, rgba(79,209,165,0.08), transparent 60%);
+  }
+  .hero-eyebrow { color: var(--accent); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; margin-bottom: 12px; }
+  .hero h1 { font-size: 32px; font-weight: 800; margin: 0 0 14px; letter-spacing: -0.01em; }
+  .hero p.sub { color: var(--text-dim); font-size: 16px; max-width: 480px; margin: 0 auto 40px; }
+
+  .flow {
+    display: flex; align-items: center; justify-content: center; gap: 0;
+    max-width: 640px; margin: 0 auto; flex-wrap: wrap;
+  }
+  .flow-node {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; font-size: 13px; min-width: 108px; text-align: center;
+  }
+  .flow-node .icon { font-size: 22px; display: block; margin-bottom: 6px; }
+  .flow-node.highlight { border-color: var(--accent); background: rgba(79,209,165,0.08); }
+  .flow-arrow { color: var(--text-dim); font-size: 20px; padding: 0 10px; }
+  @media (max-width: 600px) {
+    .flow { flex-direction: column; gap: 8px; }
+    .flow-arrow { transform: rotate(90deg); padding: 2px 0; }
+  }
+
+  /* ---------- Sections ---------- */
+  h2.section-title {
+    font-size: 22px; font-weight: 800; margin: 56px 0 8px; display: flex; align-items: baseline; gap: 10px;
+  }
+  h2.section-title .num { color: var(--accent); font-family: var(--mono); font-size: 15px; font-weight: 700; }
+  p.section-desc { color: var(--text-dim); margin: 0 0 24px; font-size: 15px; }
+
+  /* ---------- Step cards ---------- */
+  .step {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px 24px; margin-bottom: 14px;
+  }
+  .step-title { font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+  .step p { margin: 8px 0; color: var(--text); font-size: 14.5px; }
+  .step a.btn {
+    display: inline-block; background: var(--accent); color: #08130f; font-weight: 700;
+    padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 14px; margin-top: 6px;
+  }
+  code, .kbd {
+    font-family: var(--mono); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 5px; padding: 2px 7px; font-size: 13px; color: var(--accent);
+  }
+  .path { display: block; margin: 10px 0; padding: 10px 14px; }
+
+  /* ---------- Breadcrumb path ---------- */
+  .breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13.5px; color: var(--text-dim); }
+  .breadcrumb .seg { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; color: var(--text); }
+  .breadcrumb .sep { color: var(--text-dim); }
+
+  /* ---------- Callout boxes ---------- */
+  .warn-box {
+    border-left: 3px solid var(--amber); background: rgba(224,169,78,0.08);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 14px 0; font-size: 14px;
+  }
+  .warn-box .label { color: var(--amber); font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .danger-box {
+    border-left: 3px solid var(--danger); background: rgba(224,106,106,0.08);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 14px 0; font-size: 14px;
+  }
+  .danger-box .label { color: var(--danger); font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+
+  /* ---------- Troubleshooting accordion ---------- */
+  .trouble-item { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+  .trouble-q {
+    padding: 16px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+    background: var(--panel); font-weight: 700; font-size: 14.5px;
+  }
+  .trouble-q:hover { background: var(--panel-2); }
+  .trouble-q .chev { color: var(--accent); transition: transform .2s; }
+  .trouble-item.open .chev { transform: rotate(45deg); }
+  .trouble-a {
+    max-height: 0; overflow: hidden; transition: max-height .25s ease;
+    background: var(--panel-2); font-size: 14px; color: var(--text-dim);
+  }
+  .trouble-item.open .trouble-a { max-height: 400px; }
+  .trouble-a-inner { padding: 4px 20px 18px; }
+  .trouble-a-inner ol, .trouble-a-inner ul { margin: 6px 0; padding-left: 20px; }
+  .trouble-a-inner li { margin: 4px 0; }
+
+  /* ---------- Checklist ---------- */
+  .checklist { list-style: none; padding: 0; margin: 0; }
+  .checklist li {
+    display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14.5px;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist li .box { color: var(--accent); flex-shrink: 0; }
+
+  footer { text-align: center; padding: 40px 24px; color: var(--text-dim); font-size: 13px; border-top: 1px solid var(--line); margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-eyebrow">Speak, I'll Listen · Setup Guide</div>
+  <h1>Use System Audio as a Microphone</h1>
+  <p class="sub">For STT to understand sound playing from YouTube or a video, you need a bridge that turns your speaker output into a virtual "microphone input." VB-Cable is that bridge.</p>
+
+  <div class="flow">
+    <div class="flow-node"><span class="icon">🔊</span>System Audio<br><span style="color:var(--text-dim);font-size:11px;">YouTube / video</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node highlight"><span class="icon">🔌</span>VB-Cable<br><span style="color:var(--text-dim);font-size:11px;">virtual cable</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node"><span class="icon">🎙️</span>Mic Input<br><span style="color:var(--text-dim);font-size:11px;">seen by browser</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node"><span class="icon">📝</span>Live Captions</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <h2 class="section-title"><span class="num">01</span> Install</h2>
+  <p class="section-desc">Free download from the official site. A restart is required after installation.</p>
+
+  <div class="step">
+    <div class="step-title">Download from the official VB-Audio site</div>
+    <p>Click "Download" on the page below to get the zip file.</p>
+    <a class="btn" href="https://vb-audio.com/Cable/" target="_blank">vb-audio.com/Cable →</a>
+    <p style="margin-top:14px;">Unzip it, then run <code>VBCABLE_Setup_x64.exe</code> <b>as administrator</b> (right-click → "Run as administrator").</p>
+    <div class="warn-box">
+      <div class="label">⚠ Required after install</div>
+      Once installation finishes, <b>restart your computer</b>. Skipping the restart often means the device won't show up in any list, or no audio gets captured at all.
+    </div>
+  </div>
+
+  <h2 class="section-title"><span class="num">02</span> Route system audio into CABLE</h2>
+  <p class="section-desc">This tells Windows to send audio to VB-Cable instead of your speakers.</p>
+
+  <div class="step">
+    <div class="step-title">Set your output device to CABLE Input</div>
+    <div class="breadcrumb">
+      <span class="seg">Settings</span><span class="sep">›</span>
+      <span class="seg">System</span><span class="sep">›</span>
+      <span class="seg">Sound</span><span class="sep">›</span>
+      <span class="seg">Choose where to play sound</span>
+    </div>
+    <p style="margin-top:14px;">Select <code>CABLE Input (VB-Audio Virtual Cable)</code>.</p>
+    <div class="danger-box">
+      <div class="label">🔇 Side effect - you won't hear anything</div>
+      With this set, all audio goes to CABLE only, so <b>nothing plays through your speakers/headphones</b>. STT works fine, but you personally can't hear it. Step 03 below fixes that.
+    </div>
+  </div>
+
+  <h2 class="section-title"><span class="num">03</span> Make it audible to you too</h2>
+  <p class="section-desc">This keeps STT capturing audio while also sending sound to your speakers. Getting this step wrong can cause echo or a screeching feedback tone.</p>
+
+  <div class="step">
+    <div class="step-title">Turn on "Listen to this device"</div>
+    <div class="breadcrumb">
+      <span class="seg">Sound settings</span><span class="sep">›</span>
+      <span class="seg">Recording tab</span><span class="sep">›</span>
+      <span class="seg">Right-click CABLE Output</span><span class="sep">›</span>
+      <span class="seg">Properties</span><span class="sep">›</span>
+      <span class="seg">Listen tab</span>
+    </div>
+    <p style="margin-top:14px;">Check <code>Listen to this device</code>, then set the playback device to <b>your actual speakers/headphones</b>.</p>
+    <div class="warn-box">
+      <div class="label">⚠ Only enable this in one place</div>
+      Turn on "Listen" <b>only for CABLE Output</b>. If you accidentally set its playback device to CABLE Input itself, the sound feeds back into itself endlessly, producing a <b>screeching feedback tone (sounds like an alarm)</b>. If you hear that, immediately turn "Listen" off and re-check your settings.
+    </div>
+  </div>
+
+  <h2 class="section-title"><span class="num">04</span> Select it inside the STT app</h2>
+  <p class="section-desc">CABLE Output should now appear in the app's microphone list.</p>
+
+  <div class="step">
+    <div class="step-title">What to check in the app</div>
+    <ul class="checklist">
+      <li><span class="box">☑</span> Select <code>CABLE Output</code> in the "Recording device" dropdown (the app may auto-select it for you)</li>
+      <li><span class="box">☑</span> Enable "Raw audio (for virtual mic)" — audio coming through VB-Cable isn't a human voice, so turning off noise suppression captures it more cleanly</li>
+      <li><span class="box">☑</span> In Windows Sound settings, confirm CABLE Output is also set as the <b>default input device</b> (STT itself relies on this "default device")</li>
+    </ul>
+  </div>
+
+  <h2 class="section-title"><span class="num">05</span> On a laptop where you can't install VB-Cable</h2>
+  <p class="section-desc">Some laptops already have the same capability built in, no install needed.</p>
+  <div class="step">
+    <div class="step-title">Check for Stereo Mix</div>
+    <p>If your laptop has Realtek audio, the recording device list may already include <code>Stereo Mix (Realtek(R) Audio)</code>. It does exactly what VB-Cable does — just use it as-is.</p>
+    <div class="danger-box">
+      <div class="label">🔊 Don't enable "Listen" for Stereo Mix</div>
+      Unlike VB-Cable, Stereo Mix works by <b>directly copying your speaker output</b> — sound is already reaching your speakers. Turning on "Listen" on top of that duplicates the audio and causes echo. Leave Stereo Mix's Listen setting <b>untouched</b>.
+    </div>
+  </div>
+
+  <h2 class="section-title"><span class="num">06</span> Common issues</h2>
+  <p class="section-desc">Organized around symptoms actually encountered while building this. Click to expand.</p>
+
+  <div class="trouble-item">
+    <div class="trouble-q" onclick="toggleTrouble(this)">
+      <span>The mic shows a signal, but recordings come out silent</span>
+      <span class="chev">+</span>
+    </div>
+    <div class="trouble-a"><div class="trouble-a-inner">
+      <p>Almost always noise suppression. It's built assuming a human voice, so it treats VB-Cable's system audio as "noise" and suppresses it.</p>
+      <p><b>Fix</b>: enable "Raw audio (for virtual mic)" in the app.</p>
+    </div></div>
+  </div>
+
+  <div class="trouble-item">
+    <div class="trouble-q" onclick="toggleTrouble(this)">
+      <span>Audio sounds doubled or echoing</span>
+      <span class="chev">+</span>
+    </div>
+    <div class="trouble-a"><div class="trouble-a-inner">
+      <p>Either "Listen" is turned on for Stereo Mix, or VB-Cable's Listen playback device is set incorrectly.</p>
+      <ol>
+        <li>Using Stereo Mix → turn Listen <b>off</b> (it's not needed there)</li>
+        <li>Using VB-Cable → confirm Listen's playback device is <b>your real speakers, not CABLE Input itself</b></li>
+      </ol>
+    </div></div>
+  </div>
+
+  <div class="trouble-item">
+    <div class="trouble-q" onclick="toggleTrouble(this)">
+      <span>A continuous screeching/alarm-like tone won't stop</span>
+      <span class="chev">+</span>
+    </div>
+    <div class="trouble-a"><div class="trouble-a-inner">
+      <p>This is an audio feedback loop. Mute first, then find the cause.</p>
+      <ol>
+        <li>Recording tab → the device in question (Stereo Mix / CABLE Output) → Properties → Listen tab → <b>uncheck it</b></li>
+        <li>If it keeps going, restart your PC (a stuck audio config is usually reset by a reboot)</li>
+      </ol>
+    </div></div>
+  </div>
+
+  <div class="trouble-item">
+    <div class="trouble-q" onclick="toggleTrouble(this)">
+      <span>The output device list is empty, saying "No output device found"</span>
+      <span class="chev">+</span>
+    </div>
+    <div class="trouble-a"><div class="trouble-a-inner">
+      <p>This isn't a VB-Cable/virtual-device issue — it's the laptop's own audio driver acting up.</p>
+      <ol>
+        <li>Run the Windows audio troubleshooter (Settings → System → Sound → Troubleshoot)</li>
+        <li>Check Device Manager for a yellow warning (⚠) on any sound device</li>
+        <li>If that doesn't help, restart, and as a last resort reinstall the audio driver</li>
+      </ol>
+    </div></div>
+  </div>
+
+  <div class="trouble-item">
+    <div class="trouble-q" onclick="toggleTrouble(this)">
+      <span>The recording device dropdown shows two CABLE Output entries ("Default" / "Communications")</span>
+      <span class="chev">+</span>
+    </div>
+    <div class="trouble-a"><div class="trouble-a-inner">
+      <p>That's normal. Windows splits the same device into a "general purpose" entry and a "calling apps only" entry. Just pick <b>"Default - CABLE Output"</b>.</p>
+    </div></div>
+  </div>
+
+</div>
+
+<footer>Speak, I'll Listen - Lingo Power</footer>
+
+<script>
+  function toggleTrouble(el) {
+    const item = el.parentElement;
+    const wasOpen = item.classList.contains('open');
+    document.querySelectorAll('.trouble-item.open').forEach(i => i.classList.remove('open'));
+    if (!wasOpen) item.classList.add('open');
+  }
+</script>
+
+</body>
+</html>

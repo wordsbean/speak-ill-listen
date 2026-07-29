@@ -54,9 +54,12 @@
     .caption-header { padding: 14px 20px; background: #222; font-size: 1rem; font-weight: 700; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
     .caption-status { font-size: 0.75rem; padding: 4px 8px; border-radius: 12px; background: #333; color: #aaa; }
     .caption-status.live { background: rgba(239,68,68,.2); color: #ef4444; border: 1px solid #ef4444; }
+    .tts-toggle-btn { padding: 4px 9px; font-size: 0.72rem; background: #2a2a2a; border: 1px solid #444; opacity: 0.55; }
+    .tts-toggle-btn.on { background: #059669; border-color: #10b981; opacity: 1; }
 
     .caption-list { flex: 1.4; padding: 14px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
     .caption-item { background: #242424; padding: 10px 14px; border-radius: 8px; border-left: 4px solid #3b82f6; animation: slideIn .25s ease-out; }
+    .caption-item:hover { background: #2c2c2c; }
     .caption-time { font-size: 0.7rem; color: #888; margin-bottom: 3px; }
     .caption-running { color: #10b981; font-weight: 600; }
     .caption-text { font-size: 0.9rem; line-height: 1.5; color: #eee; word-break: break-word; }
@@ -149,11 +152,16 @@
 <div class="app-container">
   <div class="video-section">
     <div class="mode-tabs">
-      <div class="mode-tab active" data-mode="youtube"><i class="fab fa-youtube tab-icon-fa"></i><span class="tab-full">유튜브</span></div>
-      <div class="mode-tab" data-mode="local"><i class="fas fa-folder-open tab-icon-fa"></i><span class="tab-full">로컬 파일</span></div>
-      <div class="mode-tab" data-mode="text"><i class="fas fa-clipboard tab-icon-fa"></i><span class="tab-full">텍스트 붙여넣기</span></div>
-      <div class="mode-tab" data-mode="mic"><i class="fas fa-microphone tab-icon-fa"></i><span class="tab-full">마이크로 말하기</span></div>
-      <div class="mode-tab" data-mode="doc"><i class="fas fa-file-lines tab-icon-fa"></i><span class="tab-full">문서(DOC/TXT/PDF)</span></div>
+      <select id="ui-lang-select" style="font-size:0.8rem;padding:8px 6px;background:#1e1e1e;color:#fff;border:1px solid #333;border-radius:6px 0 0 0;">
+        <option value="en">EN</option>
+        <option value="ko">KO</option>
+      </select>
+      <button id="btn-help" style="font-size:0.8rem;padding:8px 10px;background:#1e1e1e;color:#4fd1a5;border:1px solid #333;border-left:none;">❓ <span data-i18n="helpBtn">도움말</span></button>
+      <div class="mode-tab active" data-mode="youtube"><i class="fab fa-youtube tab-icon-fa"></i><span class="tab-full" data-i18n="tabYoutube">유튜브</span></div>
+      <div class="mode-tab" data-mode="local"><i class="fas fa-folder-open tab-icon-fa"></i><span class="tab-full" data-i18n="tabLocal">로컬 파일</span></div>
+      <div class="mode-tab" data-mode="text"><i class="fas fa-clipboard tab-icon-fa"></i><span class="tab-full" data-i18n="tabText">텍스트 붙여넣기</span></div>
+      <div class="mode-tab" data-mode="mic"><i class="fas fa-microphone tab-icon-fa"></i><span class="tab-full" data-i18n="tabMic">마이크로 말하기</span></div>
+      <div class="mode-tab" data-mode="doc"><i class="fas fa-file-lines tab-icon-fa"></i><span class="tab-full" data-i18n="tabDoc">문서(DOC/TXT/PDF)</span></div>
     </div>
     <div class="video-wrapper" id="video-wrapper">
       <iframe id="yt-player" src="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>
@@ -163,13 +171,13 @@
         <div id="waveform-wrapper" style="position:relative;width:95%;max-width:600px;height:100px;background:#1a1a1a;border-radius:8px;overflow:hidden;cursor:pointer;">
           <canvas id="waveform-canvas" style="width:100%;height:100%;display:block;"></canvas>
           <div id="waveform-progress" style="position:absolute;top:0;left:0;height:100%;width:0%;background:rgba(59,130,246,0.28);border-right:2px solid #3b82f6;pointer-events:none;"></div>
-          <div id="waveform-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#666;font-size:0.8rem;">파형 분석 중...</div>
+          <div id="waveform-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#666;font-size:0.8rem;" data-i18n="waveformLoading">파형 분석 중...</div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;">
           <button id="btn-audio-playpause" style="width:44px;height:44px;border-radius:50%;font-size:1.1rem;padding:0;">▶</button>
           <span id="audio-time-display" style="color:#aaa;font-size:0.8rem;font-family:monospace;">00:00 / 00:00</span>
           <label style="font-size:0.75rem;color:#aaa;display:flex;align-items:center;gap:4px;">
-            🔊 재생 볼륨 증폭
+            <span data-i18n="playbackGainLabel">🔊 재생 볼륨 증폭</span>
             <select id="playback-gain-select" style="font-size:0.75rem;padding:5px;">
               <option value="1">1x (기본)</option>
               <option value="2">2x</option>
@@ -183,14 +191,14 @@
         <div style="color:#888;font-size:0.72rem;text-align:center;">▶ 재생하면서 STT 시작을 누르면, 이 소리가 VB-Cable을 통해 자막·번역·단어현황으로 바로 처리돼요</div>
       </div>
       <div id="text-input-wrapper">
-        <textarea id="text-paste-area" placeholder="여기에 텍스트를 붙여넣으세요. 문장 단위로 자동으로 나눠서 자막처럼 오른쪽에 쌓입니다."></textarea>
-        <button id="btn-submit-text">자막으로 변환 ▶</button>
+        <textarea id="text-paste-area" data-i18n-placeholder="pasteTextPlaceholder" placeholder="여기에 텍스트를 붙여넣으세요. 문장 단위로 자동으로 나눠서 자막처럼 오른쪽에 쌓입니다."></textarea>
+        <button id="btn-submit-text" data-i18n="submitTextBtn">자막으로 변환 ▶</button>
       </div>
       <div id="mic-only-wrapper" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#111;">
         <div style="font-size:3.5rem;">🎤</div>
-        <div style="color:#ddd;font-size:1rem;">영상/파일 없이, 마이크에 대고 바로 말씀하세요</div>
+        <div style="color:#ddd;font-size:1rem;" data-i18n="micOnlyTitle">영상/파일 없이, 마이크에 대고 바로 말씀하세요</div>
         <div class="vu-meter" style="width:220px;height:14px;"><div class="vu-meter-bar" id="vu-meter-bar-inline"></div></div>
-        <div style="color:#888;font-size:0.8rem;" id="mic-only-status">🎚 "마이크 테스트"를 눌러 신호를 먼저 확인해보세요</div>
+        <div style="color:#888;font-size:0.8rem;" id="mic-only-status" data-i18n="micOnlyStatusDefault">🎚 "마이크 테스트"를 눌러 신호를 먼저 확인해보세요</div>
         <div style="display:flex;gap:8px;">
           <button id="btn-mic-test-inline" style="padding:9px 16px;">🎚 마이크 테스트</button>
           <button id="btn-stt-inline" class="btn-stt" style="padding:9px 16px;">STT 시작</button>
@@ -198,47 +206,98 @@
       </div>
       <div id="doc-only-wrapper" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#111;padding:20px;">
         <div style="font-size:3rem;">📄</div>
-        <div style="color:#ddd;font-size:1rem;text-align:center;">DOCX / TXT / PDF 파일을 올리면<br>문장 단위로 나눠서 자막처럼 쌓여요</div>
-        <label for="doc-file-input" class="file-label">문서 파일 선택</label>
+        <div style="color:#ddd;font-size:1rem;text-align:center;" data-i18n-html="docOnlyTitle">DOCX / TXT / PDF 파일을 올리면<br>문장 단위로 나눠서 자막처럼 쌓여요</div>
+        <label for="doc-file-input" class="file-label" data-i18n="selectDocBtn">문서 파일 선택</label>
         <input type="file" id="doc-file-input" accept=".docx,.txt,.pdf" style="display:none;">
         <div id="doc-status" style="color:#888;font-size:0.8rem;"></div>
       </div>
     </div>
     <div class="controls" id="controls-youtube">
       <input type="text" id="yt-url-input" placeholder="유튜브 URL 붙여넣기" />
-      <button id="btn-load">유튜브 로드</button>
+      <button id="btn-load" data-i18n="loadYoutubeBtn">유튜브 로드</button>
     </div>
     <div class="controls" id="controls-local" style="display:none;">
-      <label for="file-input" class="file-label">영상/오디오 파일 선택</label>
+      <label for="file-input" class="file-label" data-i18n="selectMediaBtn">영상/오디오 파일 선택</label>
       <input type="file" id="file-input" accept="video/*,audio/*" style="display:none;">
     </div>
     <div class="controls">
-      <span style="font-size:0.8rem;color:#aaa;">🎙 인식 언어</span>
+      <span style="font-size:0.8rem;color:#aaa;" data-i18n="srcLangLabel">🎙 src-lang</span>
       <select id="lang-select">
         <option value="en-US" selected>English</option>
-        <option value="ko-KR">한국어</option>
-        <option value="ja-JP">日本語</option>
+        <option value="ko-KR">한국어 Korean</option>
+        <option value="ja-JP">日本語 Japanese</option>
+        <option value="zh-CN">中文 Chinese</option>
+        <option value="es-ES">Español Spanish</option>
+        <option value="fr-FR">Français French</option>
+        <option value="de-DE">Deutsch German</option>
+        <option value="it-IT">Italiano Italian</option>
+        <option value="pt-PT">Português Portuguese</option>
+        <option value="ru-RU">Русский Russian</option>
+        <option value="ar-SA">العربية Arabic</option>
+        <option value="hi-IN">हिन्दी Hindi</option>
+        <option value="vi-VN">Tiếng Việt Vietnamese</option>
+        <option value="th-TH">ไทย Thai</option>
+        <option value="id-ID">Indonesia Indonesian</option>
+        <option value="ms-MY">Melayu Malay</option>
+        <option value="tr-TR">Türkçe Turkish</option>
+        <option value="nl-NL">Nederlands Dutch</option>
+        <option value="pl-PL">Polski Polish</option>
+        <option value="sv-SE">Svenska Swedish</option>
+        <option value="da-DK">Dansk Danish</option>
+        <option value="nb-NO">Norsk Norwegian</option>
+        <option value="fi-FI">Suomi Finnish</option>
+        <option value="el-GR">Ελληνικά Greek</option>
+        <option value="he-IL">עברית Hebrew</option>
+        <option value="cs-CZ">Čeština Czech</option>
+        <option value="hu-HU">Magyar Hungarian</option>
+        <option value="ro-RO">Română Romanian</option>
+        <option value="uk-UA">Українська Ukrainian</option>
+        <option value="fil-PH">Filipino</option>
       </select>
-      <span style="font-size:0.8rem;color:#aaa;">🌐 번역 언어</span>
+      <span style="font-size:0.8rem;color:#aaa;" data-i18n="tgtLangLabel">🌐 tgt-lang</span>
       <select id="tgt-lang-select">
-        <option value="ko" selected>한국어</option>
+        <option value="ko" selected>한국어 Korean</option>
         <option value="en">English</option>
-        <option value="ja">日本語</option>
-        <option value="zh">中文</option>
-        <option value="es">Español</option>
-        <option value="vi">Tiếng Việt</option>
+        <option value="ja">日本語 Japanese</option>
+        <option value="zh-CN">中文 Chinese</option>
+        <option value="es">Español Spanish</option>
+        <option value="fr">Français French</option>
+        <option value="de">Deutsch German</option>
+        <option value="it">Italiano Italian</option>
+        <option value="pt">Português Portuguese</option>
+        <option value="ru">Русский Russian</option>
+        <option value="ar">العربية Arabic</option>
+        <option value="hi">हिन्दी Hindi</option>
+        <option value="vi">Tiếng Việt Vietnamese</option>
+        <option value="th">ไทย Thai</option>
+        <option value="id">Indonesia Indonesian</option>
+        <option value="ms">Melayu Malay</option>
+        <option value="tr">Türkçe Turkish</option>
+        <option value="nl">Nederlands Dutch</option>
+        <option value="pl">Polski Polish</option>
+        <option value="sv">Svenska Swedish</option>
+        <option value="da">Dansk Danish</option>
+        <option value="no">Norsk Norwegian</option>
+        <option value="fi">Suomi Finnish</option>
+        <option value="el">Ελληνικά Greek</option>
+        <option value="he">עברית Hebrew</option>
+        <option value="cs">Čeština Czech</option>
+        <option value="hu">Magyar Hungarian</option>
+        <option value="ro">Română Romanian</option>
+        <option value="uk">Українська Ukrainian</option>
+        <option value="tl">Filipino</option>
       </select>
       <label style="font-size:0.8rem;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap;">
-        <input type="checkbox" id="chk-record">🎙 동시 녹음(MP3)
+        <input type="checkbox" id="chk-record"><span data-i18n="simultRecordLabel">🎙 동시 녹음(MP3)</span>
       </label>
       <select id="record-device-select" style="font-size:0.75rem;padding:6px;max-width:160px;">
-        <option value="">녹음 장치: 기본값</option>
+        <option value="" data-i18n="recordDeviceDefault">녹음 장치: 기본값</option>
       </select>
       <label style="font-size:0.75rem;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap;" title="유튜브/가상마이크(VB-Cable) 녹음 시 체크 유지 권장. 실제 육성 마이크로 녹음할 땐 해제해서 노이즈제거/에코캔슬을 켤 수 있어요.">
-        <input type="checkbox" id="chk-raw-audio" checked>🎚 원음 그대로(가상마이크용)
+        <input type="checkbox" id="chk-raw-audio" checked><span data-i18n="rawAudioLabel">🎚 원음 그대로(가상마이크용)</span>
       </label>
       <label style="font-size:0.75rem;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap;">
-        🔊 마이크 증폭
+        <span data-i18n="gainBoostLabel">🔊 마이크 증폭</span>
         <select id="gain-boost-select" style="font-size:0.75rem;padding:6px;">
           <option value="1">1x (기본)</option>
           <option value="1.5">1.5x</option>
@@ -247,54 +306,56 @@
           <option value="4">4x</option>
         </select>
       </label>
-      <button id="btn-stt" class="btn-stt">STT 시작</button>
-      <button id="btn-record-only" style="background:#8b5cf6;">🔴 녹음만 시작 (STT 없이)</button>
-      <button id="btn-clear" class="btn-clear">비우기</button>
+      <button id="btn-stt" class="btn-stt" data-i18n="startStt">STT 시작</button>
+      <button id="btn-record-only" style="background:#8b5cf6;" data-i18n="recordOnlyStart">🔴 녹음만 시작 (STT 없이)</button>
+      <button id="btn-clear" class="btn-clear" data-i18n="clearBtn">비우기</button>
       <a id="recording-download-link" style="display:none;padding:9px 14px;border-radius:6px;background:#8b5cf6;color:#fff;font-size:0.85rem;font-weight:600;text-decoration:none;">🎙 녹음 다운로드</a>
     </div>
     <div class="status-bar">
-      <span>입력 신호:</span>
+      <span data-i18n="inputSignalLabel">입력 신호:</span>
       <div class="vu-meter"><div class="vu-meter-bar" id="vu-meter-bar"></div></div>
       <span class="vu-label" id="vu-label">-</span>
-      <button id="btn-mic-test" style="padding:4px 8px;font-size:0.72rem;">🎚 마이크 테스트</button>
-      <button id="btn-export-excel" style="padding:4px 8px;font-size:0.72rem;background:#217346;">📊 엑셀 내보내기</button>
-      <span id="dup-count-label" style="margin-left:auto;">중복 제거: 0건</span>
+      <button id="btn-mic-test" style="padding:4px 8px;font-size:0.72rem;" data-i18n="micTestBtn">🎚 마이크 테스트</button>
+      <button id="btn-export-excel" style="padding:4px 8px;font-size:0.72rem;background:#217346;" data-i18n="exportExcelBtn">📊 엑셀 내보내기</button>
+      <span id="dup-count-label" style="margin-left:auto;" data-i18n-html="dupCountLabel0">중복 제거: 0건</span>
     </div>
     <div id="stt-diagnostic" style="padding:6px 16px;background:#0d0d0d;font-size:0.68rem;color:#fff;font-family:monospace;border-top:1px solid #222;">
-      onresult 호출: <span id="diag-onresult">0</span> | onend 호출: <span id="diag-onend">0</span> |
-      start()실패: <span id="diag-startfail">0</span> |
-      마지막 인식 텍스트: <span id="diag-lasttext">(없음)</span> | 마지막 에러: <span id="diag-lasterror">(없음)</span>
+      <span data-i18n="diagOnresultLabel">onresult 호출</span>: <span id="diag-onresult">0</span> | <span data-i18n="diagOnendLabel">onend 호출</span>: <span id="diag-onend">0</span> |
+      <span data-i18n="diagStartfailLabel">start()실패</span>: <span id="diag-startfail">0</span> |
+      <span data-i18n="diagLastTextLabel">마지막 인식 텍스트</span>: <span id="diag-lasttext">(없음)</span> | <span data-i18n="diagLastErrorLabel">마지막 에러</span>: <span id="diag-lasterror">(없음)</span>
     </div>
     <div style="padding:4px 16px;background:#0d0d0d;font-size:0.65rem;color:#fff;border-top:1px solid #1a1a1a;">
-      📱 모바일 테스트 팁: HTTPS 접속 확인 · "동시 녹음" 체크 해제하고 STT만 먼저 테스트 · 위 진단정보에서 onresult가 오르는지 확인
+      <span data-i18n="mobileTip">📱 모바일 테스트 팁: HTTPS 접속 확인 · "동시 녹음" 체크 해제하고 STT만 먼저 테스트 · 위 진단정보에서 onresult가 오르는지 확인</span>
     </div>
   </div>
 
   <div class="caption-section">
     <div class="caption-header">
-      <span>실시간 자막 피드</span>
+      <span data-i18n="captionFeedTitle">실시간 자막 피드</span>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button id="btn-open-phrasebook" style="padding:4px 10px;font-size:0.72rem;background:#8b5cf6;">📖 회화DB (<span id="phrasebook-count">0</span>)</button>
-        <span id="stt-status" class="caption-status">대기 중</span>
+        <button id="btn-tts-src" class="tts-toggle-btn" title="원문 읽어주기">🔊 <span data-i18n="ttsSrcLabel">src</span></button>
+        <button id="btn-tts-tgt" class="tts-toggle-btn" title="번역문 읽어주기">🔊 <span data-i18n="ttsTgtLabel">tgt</span></button>
+        <button id="btn-open-phrasebook" style="padding:4px 10px;font-size:0.72rem;background:#8b5cf6;">📖 <span data-i18n="phrasebookBtn">회화DB</span> (<span id="phrasebook-count">0</span>)</button>
+        <span id="stt-status" class="caption-status" data-i18n="statusIdle">대기 중</span>
       </div>
     </div>
     <div style="padding:8px 20px;background:#1a1a1a;border-bottom:1px solid #2a2a2a;font-size:0.72rem;color:#888;line-height:1.5;">
-      ℹ️ 실시간 자막은 AI가 즉시 생성한 결과입니다. 일부 인식 오류가 있을 수 있으며, 녹음 파일을 Whisper로 후처리하면 더 정확한 자막을 얻을 수 있습니다.
+      ℹ️ <span data-i18n="disclaimerText">실시간 자막은 AI가 즉시 생성한 결과입니다. 일부 인식 오류가 있을 수 있으며, 녹음 파일을 Whisper로 후처리하면 더 정확한 자막을 얻을 수 있습니다.</span>
     </div>
     <div class="caption-list" id="caption-list">
       <div class="caption-item" id="initial-guide-item" style="border-left-color: #666;">
-        <div class="caption-time">안내</div>
-        <div class="caption-text">유튜브 URL / 로컬 파일 / 텍스트 붙여넣기 중 하나를 고른 뒤 시작하세요.</div>
+        <div class="caption-time" data-i18n="guideLabel">안내</div>
+        <div class="caption-text" data-i18n="guideMessage">유튜브 URL / 로컬 파일 / 텍스트 붙여넣기 중 하나를 고른 뒤 시작하세요.</div>
       </div>
     </div>
     <div class="word-panel">
       <div class="word-panel-header">
-        <span>📊 단어 현황 (<span id="word-total-count">0</span>개)</span>
+        <span><span data-i18n="wordStatsTitle">📊 단어 현황</span> (<span id="word-total-count">0</span><span data-i18n="wordCountSuffix">개</span>)</span>
         <div style="display:flex;gap:6px;align-items:center;">
-          <button id="btn-toggle-cloud" style="padding:3px 8px;font-size:0.7rem;">☁ 워드클라우드</button>
+          <button id="btn-toggle-cloud" style="padding:3px 8px;font-size:0.7rem;" data-i18n="cloudViewBtn">☁ 워드클라우드</button>
           <select id="word-sort-select">
-            <option value="freq">빈도순</option>
-            <option value="abc">가나다순</option>
+            <option value="freq" data-i18n="sortFreq">빈도순</option>
+            <option value="abc" data-i18n="sortAbc">가나다순</option>
           </select>
         </div>
       </div>
@@ -310,24 +371,39 @@
 <div id="phrasebook-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;">
   <div style="background:#1e1e1e;border-radius:12px;padding:20px 22px;width:480px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <h3 style="font-size:1.15rem;">📖 나의 회화DB</h3>
+      <h3 style="font-size:1.15rem;" data-i18n="phrasebookModalTitle">📖 나의 회화DB</h3>
       <button id="btn-close-phrasebook" style="background:none;padding:4px 8px;">✕</button>
     </div>
-    <input type="text" id="phrasebook-search" placeholder="🔍 검색..." style="margin-bottom:10px;padding:9px 12px;border-radius:6px;border:1px solid #444;background:#2a2a2a;color:#fff;">
+    <input type="text" id="phrasebook-search" data-i18n-placeholder="phrasebookSearchPh" placeholder="🔍 검색..." style="margin-bottom:10px;padding:9px 12px;border-radius:6px;border:1px solid #444;background:#2a2a2a;color:#fff;">
     <div id="phrasebook-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
     <div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid #333;">
       <span id="phrasebook-total" style="font-size:0.75rem;color:#888;"></span>
-      <button id="btn-clear-phrasebook" style="background:#4b5563;font-size:0.75rem;padding:6px 10px;">🗑 회화DB 전체 삭제</button>
+      <button id="btn-clear-phrasebook" style="background:#4b5563;font-size:0.75rem;padding:6px 10px;" data-i18n="phrasebookClearBtn">🗑 회화DB 전체 삭제</button>
     </div>
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="data/translate.js"></script>
+<script src="data/i18n.js"></script>
 <script src="js/lame.all.min.js"></script>
 <script>
+  // UI 언어(en/ko) 초기화
+  SttI18N.applyUILang(SttI18N.getUILang());
+  document.getElementById('ui-lang-select').value = SttI18N.getUILang();
+  document.getElementById('ui-lang-select').addEventListener('change', (e) => {
+    SttI18N.applyUILang(e.target.value);
+  });
+
+  // ❓ 도움말: 현재 UI 언어(en/ko)에 맞는 VB-Cable 설정 가이드를 새 탭으로 열기
+  document.getElementById('btn-help').addEventListener('click', () => {
+    const lang = SttI18N.getUILang();
+    const guideFile = lang === 'ko' ? 'help/vbcable-guide_kr.html' : 'help/vbcable-guide_en.html';
+    window.open(guideFile, '_blank');
+  });
+
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   // 첫 터치/클릭 순간 안내 문구 제거 (직접 지우는 게 아니라, 사용자가 상호작용하는 순간 사라지게)
@@ -635,7 +711,7 @@
           currentDiv.style.borderLeftColor = '#f59e0b';
           captionList.appendChild(currentDiv);
         }
-        currentDiv.innerHTML = '<div class="caption-time">실시간...</div><div class="caption-text">' + interim + '</div>';
+        currentDiv.innerHTML = '<div class="caption-time">' + SttI18N.t('liveLabel') + '</div><div class="caption-text">' + interim + '</div>';
         captionList.scrollTop = captionList.scrollHeight;
       }
     };
@@ -691,7 +767,7 @@
         item.dataset.errorMsg = msg;
         item.dataset.repeatCount = '1';
         item.style.borderLeftColor = '#ef4444';
-        item.innerHTML = `<div class="caption-time">시스템</div><div class="caption-text">${msg}</div>`;
+        item.innerHTML = `<div class="caption-time">${SttI18N.t('systemLabel')}</div><div class="caption-text">${msg}</div>`;
         captionList.appendChild(item);
         captionList.scrollTop = captionList.scrollHeight;
       }
@@ -699,6 +775,33 @@
   }
 
   /* ---------- 회화DB: 세션 넘어서도 계속 쌓이는 개인 회화첩 (localStorage) ---------- */
+  /* ---------- TTS(음성 읽어주기): src-lang/tgt-lang 각각 켜고 끌 수 있음 ---------- */
+  let ttsSrcOn = false;
+  let ttsTgtOn = false;
+  const TGT_LANG_TO_LOCALE = {
+    ko: 'ko-KR', en: 'en-US', ja: 'ja-JP', 'zh-CN': 'zh-CN', es: 'es-ES', fr: 'fr-FR', de: 'de-DE',
+    it: 'it-IT', pt: 'pt-PT', ru: 'ru-RU', ar: 'ar-SA', hi: 'hi-IN', vi: 'vi-VN', th: 'th-TH',
+    id: 'id-ID', ms: 'ms-MY', tr: 'tr-TR', nl: 'nl-NL', pl: 'pl-PL', sv: 'sv-SE', da: 'da-DK',
+    no: 'nb-NO', fi: 'fi-FI', el: 'el-GR', he: 'he-IL', cs: 'cs-CZ', hu: 'hu-HU', ro: 'ro-RO',
+    uk: 'uk-UA', tl: 'fil-PH',
+  };
+
+  function speakText(text, langOrCode) {
+    if (!window.speechSynthesis || !text) return;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = TGT_LANG_TO_LOCALE[langOrCode] || langOrCode; // src-lang은 이미 완전한 로케일(en-US 등)이라 그대로 씀
+    speechSynthesis.speak(utter);
+  }
+
+  document.getElementById('btn-tts-src').addEventListener('click', function () {
+    ttsSrcOn = !ttsSrcOn;
+    this.classList.toggle('on', ttsSrcOn);
+  });
+  document.getElementById('btn-tts-tgt').addEventListener('click', function () {
+    ttsTgtOn = !ttsTgtOn;
+    this.classList.toggle('on', ttsTgtOn);
+  });
+
   const PHRASEBOOK_KEY = 'speakilllisten_phrasebook';
   const PhraseBook = {
     getAll() {
@@ -811,7 +914,7 @@
     text = capitalizeFirstLetter(text);
     if (isDuplicate(text)) {
       dupCount++;
-      dupCountLabel.textContent = `중복 제거: ${dupCount}건`;
+      dupCountLabel.textContent = `${SttI18N.t('duplicatesRemovedLabel')}: ${dupCount}${SttI18N.t('countUnitSuffix')}`;
       return;
     }
     const norm = normalizeForDup(text);
@@ -822,6 +925,8 @@
     updateWordStats(text);
     const record = { timeStr: item.dataset.timeStr, runningStr: item.dataset.runningStr || '', original: text, translated: '' };
     captionRecords.push(record);
+
+    if (ttsSrcOn) speakText(text, langSelect.value || 'en-US');
 
     // 번역은 별도 비동기 작업으로 완전히 분리 - processNewCaption 자신은 여기서 바로 반환됨.
     // (모바일에서 번역 API 응답을 기다리는 동안 STT 이벤트 처리가 밀리는 것을 방지하기 위함)
@@ -841,6 +946,7 @@
         trEl.textContent = translated;
         item.appendChild(trEl);
         record.translated = translated;
+        if (ttsTgtOn) speakText(translated, tgtLang);
       } catch (e) { /* 번역 실패해도 자막 자체는 이미 표시됨 */ }
     }
 
@@ -866,9 +972,18 @@
     const runningStr = recordingStartTime ? formatRunningTime(now.getTime() - recordingStartTime) : null;
     const item = document.createElement('div');
     item.className = 'caption-item';
+    item.style.cursor = 'pointer';
+    item.title = 'Click to replay with TTS (src/tgt toggles above)';
     item.dataset.timeStr = timeStr;
     item.dataset.runningStr = runningStr || '';
     item.innerHTML = `<div class="caption-time">${timeStr}${runningStr ? ` <span class="caption-running">▶ ${runningStr}</span>` : ''}</div><div class="caption-text">${escapeHtml(text)}</div>`;
+    item.addEventListener('click', () => {
+      if (ttsSrcOn) speakText(text, langSelect.value || 'en-US');
+      if (ttsTgtOn) {
+        const trEl = item.querySelector('.caption-text-tr');
+        if (trEl && trEl.textContent) speakText(trEl.textContent, tgtLangSelect.value);
+      }
+    });
     captionList.appendChild(item);
     captionList.scrollTop = captionList.scrollHeight;
     return item;
@@ -931,42 +1046,81 @@
   document.getElementById('word-sort-select').addEventListener('change', renderWordList);
   document.getElementById('btn-toggle-cloud').addEventListener('click', () => {
     cloudViewMode = !cloudViewMode;
-    document.getElementById('btn-toggle-cloud').textContent = cloudViewMode ? '📋 리스트 보기' : '☁ 워드클라우드';
+    document.getElementById('btn-toggle-cloud').textContent = cloudViewMode ? SttI18N.t('listViewBtn') : SttI18N.t('cloudViewBtn');
     renderWordList();
   });
 
   /* ---------- 엑셀 내보내기 (자막 시트 + 단어현황 시트) ---------- */
-  document.getElementById('btn-export-excel').addEventListener('click', () => {
+  document.getElementById('btn-export-excel').addEventListener('click', async () => {
     if (!captionRecords.length) { alert('내보낼 자막이 없어요.'); return; }
-    if (!window.XLSX) { alert('엑셀 라이브러리를 아직 불러오는 중이에요. 잠시 후 다시 시도해주세요.'); return; }
+    if (!window.ExcelJS) { alert('엑셀 라이브러리를 아직 불러오는 중이에요. 잠시 후 다시 시도해주세요.'); return; }
 
-    const wb = XLSX.utils.book_new();
-
-    // 시트 1: 자막
-    const captionRows = [['현재시각', '런닝타임', '원문', '번역']];
-    captionRecords.forEach(r => captionRows.push([r.timeStr, r.runningStr, r.original, r.translated]));
-    const wsCaptions = XLSX.utils.aoa_to_sheet(captionRows);
-    wsCaptions['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 60 }, { wch: 60 }];
-    XLSX.utils.book_append_sheet(wb, wsCaptions, '자막');
-
-    // 시트 2: 단어현황
-    const wordRows = [['단어', '빈도']];
-    [...wordCounts.entries()].sort((a, b) => b[1] - a[1]).forEach(([w, c]) => wordRows.push([w, c]));
-    const wsWords = XLSX.utils.aoa_to_sheet(wordRows);
-    wsWords['!cols'] = [{ wch: 20 }, { wch: 8 }];
-    XLSX.utils.book_append_sheet(wb, wsWords, '단어현황');
-
-    // 시트 3: 사전조회
-    if (dictionaryLookups.length) {
-      const dictRows = [['단어', '품사', '정의', '예문']];
-      dictionaryLookups.forEach(d => dictRows.push([d.word, d.partOfSpeech, d.definition, d.example]));
-      const wsDict = XLSX.utils.aoa_to_sheet(dictRows);
-      wsDict['!cols'] = [{ wch: 16 }, { wch: 10 }, { wch: 50 }, { wch: 50 }];
-      XLSX.utils.book_append_sheet(wb, wsDict, '사전조회');
+    const workbook = new ExcelJS.Workbook();
+    function styleHeader(row) {
+      row.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBEE3F8' } }; // 연한 하늘색
+        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true }; // 흰색 볼드
+      });
     }
 
+    // Sheet 1: Dialogs (time-stamped captions + translation)
+    const wsDialogs = workbook.addWorksheet('Dialogs');
+    wsDialogs.columns = [
+      { header: 'Current Time', key: 'time', width: 12 },
+      { header: 'Running Time', key: 'running', width: 12 },
+      { header: 'Source', key: 'source', width: 60 },
+      { header: 'Translate', key: 'translate', width: 60 },
+    ];
+    captionRecords.forEach(r => wsDialogs.addRow({ time: r.timeStr, running: r.runningStr, source: r.original, translate: r.translated }));
+    styleHeader(wsDialogs.getRow(1));
+
+    // Sheet 2: Word Statistics
+    const wsWords = workbook.addWorksheet('Word Statistics');
+    wsWords.columns = [
+      { header: 'Word', key: 'word', width: 22 },
+      { header: 'Frequency', key: 'freq', width: 12 },
+    ];
+    [...wordCounts.entries()].sort((a, b) => b[1] - a[1]).forEach(([w, c]) => wsWords.addRow({ word: w, freq: c }));
+    styleHeader(wsWords.getRow(1));
+
+    // Sheet 3: Dictionary lookups (bonus - if any words were looked up)
+    if (dictionaryLookups.length) {
+      const wsDict = workbook.addWorksheet('Dictionary');
+      wsDict.columns = [
+        { header: 'Word', key: 'word', width: 18 },
+        { header: 'Part of Speech', key: 'pos', width: 14 },
+        { header: 'Definition', key: 'def', width: 50 },
+        { header: 'Example', key: 'ex', width: 50 },
+      ];
+      dictionaryLookups.forEach(d => wsDict.addRow({ word: d.word, pos: d.partOfSpeech, def: d.definition, ex: d.example }));
+      styleHeader(wsDict.getRow(1));
+    }
+
+    // Sheet 4: Conversation DB (accumulated phrasebook, persists across sessions)
+    const phrasebookAll = PhraseBook.getAll();
+    if (phrasebookAll.length) {
+      const wsPb = workbook.addWorksheet('Conversation DB');
+      wsPb.columns = [
+        { header: 'Source', key: 'source', width: 50 },
+        { header: 'Translate', key: 'translate', width: 50 },
+        { header: 'Src Lang', key: 'srcLang', width: 10 },
+        { header: 'Tgt Lang', key: 'tgtLang', width: 10 },
+        { header: 'Saved At', key: 'savedAt', width: 22 },
+      ];
+      phrasebookAll.forEach(e => wsPb.addRow({ source: e.original, translate: e.translated || '', srcLang: e.srcLang || '', tgtLang: e.tgtLang || '', savedAt: e.savedAt || '' }));
+      styleHeader(wsPb.getRow(1));
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    XLSX.writeFile(wb, `lingopower_captions_${ts}.xlsx`);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lingopower_captions_${ts}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   });
 
   /* ---------- 7. 클릭 -> 사전 검색 ---------- */
@@ -974,7 +1128,7 @@
     const backdrop = document.getElementById('dict-popup-backdrop');
     const popup = document.getElementById('dict-popup');
     backdrop.classList.add('show');
-    popup.innerHTML = `<button class="dict-close" id="dict-close-btn">✕</button><div class="dict-loading">"${word}" 검색 중...</div>`;
+    popup.innerHTML = `<button class="dict-close" id="dict-close-btn">✕</button><div class="dict-loading">"${word}" ${SttI18N.t('dictSearching')}</div>`;
     document.getElementById('dict-close-btn').addEventListener('click', () => backdrop.classList.remove('show'));
 
     // 영어 단어는 무료 사전 API, 그 외 언어는 외부 사전으로 링크 안내
@@ -983,8 +1137,8 @@
       popup.innerHTML = `
         <button class="dict-close" id="dict-close-btn">✕</button>
         <h3>${word}</h3>
-        <div class="dict-error">영어가 아닌 단어는 자동 사전 조회를 지원하지 않아요.<br>
-        <a href="https://ko.dict.naver.com/#/search?query=${encodeURIComponent(word)}" target="_blank" style="color:#3b82f6;">네이버 사전에서 찾아보기 →</a></div>
+        <div class="dict-error">${SttI18N.t('dictNotFoundNaver')}<br>
+        <a href="https://ko.dict.naver.com/#/search?query=${encodeURIComponent(word)}" target="_blank" style="color:#3b82f6;">${SttI18N.t('dictSearchNaver')}</a></div>
       `;
       document.getElementById('dict-close-btn').addEventListener('click', () => backdrop.classList.remove('show'));
       return;
@@ -996,11 +1150,11 @@
       const data = await res.json();
       let html = `<button class="dict-close" id="dict-close-btn">✕</button><h3>${data[0].word}</h3>`;
       if (data.length > 1) {
-        html += `<div style="font-size:0.75rem;color:#9ca3af;margin-bottom:8px;">이 단어는 뜻이 서로 다른 어원을 가진 동철이의어예요 — 아래 ${data.length}가지 항목을 모두 표시해요.</div>`;
+        html += `<div style="font-size:0.75rem;color:#9ca3af;margin-bottom:8px;">${SttI18N.t('homonymNote')} (${data.length})</div>`;
       }
       data.forEach((entry, idx) => {
         const phonetic = entry.phonetic || (entry.phonetics.find(p => p.text) || {}).text || '';
-        if (data.length > 1) html += `<div style="font-weight:700;color:#10b981;margin-top:${idx ? '14px' : '0'};">항목 ${idx + 1}</div>`;
+        if (data.length > 1) html += `<div style="font-weight:700;color:#10b981;margin-top:${idx ? '14px' : '0'};">${SttI18N.t('entryLabel')} ${idx + 1}</div>`;
         if (phonetic) html += `<div class="dict-phonetic">${phonetic}</div>`;
         entry.meanings.slice(0, 3).forEach(m => {
           html += `<div class="dict-meaning-block"><div class="dict-pos">${m.partOfSpeech}</div>`;
@@ -1018,8 +1172,8 @@
       popup.innerHTML = `
         <button class="dict-close" id="dict-close-btn">✕</button>
         <h3>${word}</h3>
-        <div class="dict-error">사전에서 찾지 못했어요.<br>
-        <a href="https://www.merriam-webster.com/dictionary/${encodeURIComponent(word)}" target="_blank" style="color:#3b82f6;">Merriam-Webster에서 찾아보기 →</a></div>
+        <div class="dict-error">${SttI18N.t('dictNotFound')}<br>
+        <a href="https://www.merriam-webster.com/dictionary/${encodeURIComponent(word)}" target="_blank" style="color:#3b82f6;">${SttI18N.t('dictSearchMW')}</a></div>
       `;
       document.getElementById('dict-close-btn').addEventListener('click', () => backdrop.classList.remove('show'));
     }
@@ -1105,13 +1259,13 @@
         silentFrames++;
         if (silentFrames > 30) {
           vuLabel.textContent = '⚠ 무음'; vuLabel.classList.add('silent');
-          if (micOnlyStatus) micOnlyStatus.textContent = '⚠ 소리가 감지되지 않아요 - 마이크를 확인해주세요';
+          if (micOnlyStatus) micOnlyStatus.textContent = SttI18N.t('micSignalNone');
         }
       } else {
         silentFrames = 0;
         vuLabel.textContent = '신호 있음';
         vuLabel.classList.remove('silent');
-        if (micOnlyStatus) micOnlyStatus.textContent = '🎙 신호가 감지되고 있어요';
+        if (micOnlyStatus) micOnlyStatus.textContent = SttI18N.t('micSignalDetected');
       }
       vuAnimId = requestAnimationFrame(tick);
     }
@@ -1127,7 +1281,7 @@
     const vuBarInline = document.getElementById('vu-meter-bar-inline');
     if (vuBarInline) vuBarInline.style.width = '0%';
     const micOnlyStatus = document.getElementById('mic-only-status');
-    if (micOnlyStatus) micOnlyStatus.textContent = '🎚 "마이크 테스트"를 눌러 신호를 먼저 확인해보세요';
+    if (micOnlyStatus) micOnlyStatus.textContent = SttI18N.t('micOnlyStatusDefault');
   }
 
   /* ---------- 9. STT 시작/중지 + (선택) 동시 녹음 (WAV) ---------- */
@@ -1146,7 +1300,7 @@
       const devices = await navigator.mediaDevices.enumerateDevices();
       const audioInputs = devices.filter(d => d.kind === 'audioinput');
       const sel = document.getElementById('record-device-select');
-      sel.innerHTML = '<option value="">녹음 장치: 기본값</option>' +
+      sel.innerHTML = `<option value="">${SttI18N.t('recordDeviceDefault')}</option>` +
         audioInputs.map(d => `<option value="${d.deviceId}">${d.label || '(이름 없는 장치)'}</option>`).join('');
 
       // 가상마이크(CABLE/Virtual 등) 장치가 목록에 있으면 자동으로 기본 선택 + 원음모드 자동 체크 + 동시녹음도 자동 켜기
@@ -1369,7 +1523,7 @@
         }
         recognition.start();
         isListening = true;
-        btnStt.textContent = 'STT 중지';
+        btnStt.textContent = SttI18N.t('stopStt');
         btnStt.classList.add('active');
         sttStatus.textContent = 'REC 중...';
         sttStatus.classList.add('live');
@@ -1378,7 +1532,7 @@
     } else {
       isListening = false;
       recognition.stop();
-      btnStt.textContent = 'STT 시작';
+      btnStt.textContent = SttI18N.t('startStt');
       btnStt.classList.remove('active');
       sttStatus.classList.remove('live');
       stopRecording();
@@ -1390,10 +1544,10 @@
   function confirmMicOff() {
     if (typeof vuTesting !== 'undefined' && vuTesting) {
       vuTesting = false;
-      document.getElementById('btn-mic-test').textContent = '🎚 마이크 테스트';
+      document.getElementById('btn-mic-test').textContent = SttI18N.t('micTestBtn');
       stopVuMeter();
     }
-    sttStatus.textContent = '🎤 마이크 종료됨';
+    sttStatus.textContent = SttI18N.t('micOffConfirm');
     setTimeout(() => { if (!isListening && !isRecordingOnly) sttStatus.textContent = '대기 중'; }, 1500);
   }
 
@@ -1406,13 +1560,13 @@
       document.getElementById('recording-download-link').style.display = 'none';
       await startRecording();
       isRecordingOnly = true;
-      btn.textContent = '⏹ 녹음 중지';
+      btn.textContent = SttI18N.t('recordOnlyStop');
       btn.style.background = '#ef4444';
       sttStatus.textContent = '🔴 녹음 중 (STT 없음)';
     } else {
       stopRecording();
       isRecordingOnly = false;
-      btn.textContent = '🔴 녹음만 시작 (STT 없이)';
+      btn.textContent = SttI18N.t('recordOnlyStart');
       btn.style.background = '#8b5cf6';
       confirmMicOff();
     }
@@ -1423,11 +1577,11 @@
   document.getElementById('btn-mic-test').addEventListener('click', async () => {
     if (!vuTesting) {
       vuTesting = true;
-      document.getElementById('btn-mic-test').textContent = '🎚 테스트 중지';
+      document.getElementById('btn-mic-test').textContent = SttI18N.t('micTestStop');
       await startVuMeter();
     } else {
       vuTesting = false;
-      document.getElementById('btn-mic-test').textContent = '🎚 마이크 테스트';
+      document.getElementById('btn-mic-test').textContent = SttI18N.t('micTestBtn');
       stopVuMeter();
     }
   });
@@ -1451,7 +1605,7 @@
     recentCaptions.length = 0;
     captionRecords.length = 0;
     dupCount = 0;
-    dupCountLabel.textContent = '중복 제거: 0건';
+    dupCountLabel.textContent = SttI18N.t('dupCountLabel0');
     wordCounts.clear();
     renderWordList();
   });

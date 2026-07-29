@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VB-Cable 설치 가이드 - 시스템 소리를 마이크처럼 쓰기</title>
+<style>
+  :root {
+    --bg: #0d0f0e;
+    --panel: #161917;
+    --panel-2: #1e2220;
+    --line: #2a2f2c;
+    --text: #e8ece9;
+    --text-dim: #93a099;
+    --accent: #4fd1a5;
+    --accent-dim: #2a5f4c;
+    --blue: #5b9bd5;
+    --amber: #e0a94e;
+    --danger: #e06a6a;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Malgun Gothic', sans-serif;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 0 24px 100px; }
+
+  /* ---------- 히어로: 신호 흐름 다이어그램 ---------- */
+  .hero {
+    padding: 64px 24px 48px; text-align: center; border-bottom: 1px solid var(--line);
+    background: radial-gradient(ellipse at 50% -10%, rgba(79,209,165,0.08), transparent 60%);
+  }
+  .hero-eyebrow { color: var(--accent); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; margin-bottom: 12px; }
+  .hero h1 { font-size: 32px; font-weight: 800; margin: 0 0 14px; letter-spacing: -0.01em; }
+  .hero p.sub { color: var(--text-dim); font-size: 16px; max-width: 480px; margin: 0 auto 40px; }
+
+  .flow {
+    display: flex; align-items: center; justify-content: center; gap: 0;
+    max-width: 640px; margin: 0 auto; flex-wrap: wrap;
+  }
+  .flow-node {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; font-size: 13px; min-width: 108px; text-align: center;
+  }
+  .flow-node .icon { font-size: 22px; display: block; margin-bottom: 6px; }
+  .flow-node.highlight { border-color: var(--accent); background: rgba(79,209,165,0.08); }
+  .flow-arrow { color: var(--text-dim); font-size: 20px; padding: 0 10px; }
+  @media (max-width: 600px) {
+    .flow { flex-direction: column; gap: 8px; }
+    .flow-arrow { transform: rotate(90deg); padding: 2px 0; }
+  }
+
+  /* ---------- 섹션 공통 ---------- */
+  h2.section-title {
+    font-size: 22px; font-weight: 800; margin: 56px 0 8px; display: flex; align-items: baseline; gap: 10px;
+  }
+  h2.section-title .num { color: var(--accent); font-family: var(--mono); font-size: 15px; font-weight: 700; }
+  p.section-desc { color: var(--text-dim); margin: 0 0 24px; font-size: 15px; }
+
+  /* ---------- 단계 카드 ---------- */
+  .step {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px 24px; margin-bottom: 14px;
+  }
+  .step-title { font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+  .step p { margin: 8px 0; color: var(--text); font-size: 14.5px; }
+  .step a.btn {
+    display: inline-block; background: var(--accent); color: #08130f; font-weight: 700;
+    padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 14px; margin-top: 6px;
+  }
+  code, .kbd {
+    font-family: var(--mono); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 5px; padding: 2px 7px; font-size: 13px; color: var(--accent);
+  }
+  .path { display: block; margin: 10px 0; padding: 10px 14px; }
+
+  /* ---------- 경로 안내(브레드크럼) ---------- */
+  .breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13.5px; color: var(--text-dim); }
+  .breadcrumb .seg { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; color: var(--text); }
+  .breadcrumb .sep { color: var(--text-dim); }
+
+  /* ---------- 경고/주의 박스 ---------- */
+  .warn-box {
+    border-left: 3px solid var(--amber); background: rgba(224,169,78,0.08);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 14px 0; font-size: 14px;
+  }
+  .warn-box .label { color: var(--amber); font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .danger-box {
+    border-left: 3px solid var(--danger); background: rgba(224,106,106,0.08);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 14px 0; font-size: 14px;
+  }
+  .danger-box .label { color: var(--danger); font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+
+  /* ---------- 트러블슈팅 아코디언 ---------- */
+  .trouble-item { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+  .trouble-q {
+    padding: 16px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+    background: var(--panel); font-weight: 700; font-size: 14.5px;
+  }
+  .trouble-q:hover { background: var(--panel-2); }
+  .trouble-q .chev { color: var(--accent); transition: transform .2s; }
+  .trouble-item.open .chev { transform: rotate(45deg); }
+  .trouble-a {
+    max-height: 0; overflow: hidden; transition: max-height .25s ease;
+    background: var(--panel-2); font-size: 14px; color: var(--text-dim);
+  }
+  .trouble-item.open .trouble-a { max-height: 400px; }
+  .trouble-a-inner { padding: 4px 20px 18px; }
+  .trouble-a-inner ol, .trouble-a-inner ul { margin: 6px 0; padding-left: 20px; }
+  .trouble-a-inner li { margin: 4px 0; }
+
+  /* ---------- 체크리스트 ---------- */
+  .checklist { list-style: none; padding: 0; margin: 0; }
+  .checklist li {
+    display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14.5px;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist li .box { color: var(--accent); flex-shrink: 0; }
+
+  footer { text-align: center; padding: 40px 24px; color: var(--text-dim); font-size: 13px; border-top: 1px solid var(--line); margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-eyebrow">Speak, I'll Listen · 설정 가이드</div>
+  <h1>시스템 소리를 마이크처럼 쓰는 법</h1>
+  <p class="sub">유튜브·영상에서 나는 소리를 STT가 알아듣게 하려면, 스피커 소리를 가상의 "마이크 입력"으로 바꿔주는 다리가 필요해요. VB-Cable이 그 다리입니다.</p>
+
+  <div class="flow">
+    <div class="flow-node"><span class="icon">🔊</span>시스템 소리<br><span style="color:var(--text-dim);font-size:11px;">유튜브·영상</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node highlight"><span class="icon">🔌</span>VB-Cable<br><span style="color:var(--text-dim);font-size:11px;">가상 케이블</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node"><span class="icon">🎙️</span>마이크 입력<br><span style="color:var(--text-dim);font-size:11px;">브라우저가 인식</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-node"><span class="icon">📝</span>실시간 자막</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <h2 class="section-title"><span class="num">01</span> 설치</h2>
+  <p class="section-desc">공식 사이트에서 무료로 받을 수 있어요. 설치 후 반드시 재부팅이 필요합니다.</p>
+
+  <div class="step">
+    <div class="step-title">VB-Audio 공식 사이트에서 다운로드</div>
+    <p>아래 링크에서 "Download" 버튼을 눌러 zip 파일을 받으세요.</p>
+    <a class="btn" href="https://vb-audio.com/Cable/" target="_blank">vb-audio.com/Cable →</a>
+    <p style="margin-top:14px;">받은 zip을 압축 풀고, 안에 있는 <code>VBCABLE_Setup_x64.exe</code>를 <b>관리자 권한으로 실행</b>하세요 (우클릭 → "관리자 권한으로 실행").</p>
+    <div class="warn-box">
+      <div class="label">⚠ 설치 후 필수</div>
+      설치가 끝나면 <b>반드시 컴퓨터를 재부팅</b>하세요. 재부팅 안 하면 장치가 목록에 안 뜨거나 소리가 하나도 안 잡히는 경우가 많아요.
+    </div>
+  </div>
+
+  <h2 class="section-title"><span class="num">02</span> 시스템 소리를 CABLE로 보내기</h2>
+  <p class="section-desc">Windows가 소리를 스피커 대신 VB-Cable로 흘려보내도록 지정하는 단계예요.</p>
+
+  <div class="step">
+    <div class="step-title">출력 장치를 CABLE Input으로 변경</div>
+    <div class="breadcrumb">
+      <span class="seg">설정</span><span class="sep">›</span>
+      <span class="seg">시스템</span><span class="sep">›</span>
+      <span class="seg">소리</span><span class="sep">›</span>
+      <span class="seg">소리를 재생할 위치 선택</span>
+    </div>
+    <p style="margin-top:14px;">여기서 <code>CABLE Input (VB-Audio Virtual Cable)</code>를 선택하세요.</p>
+    <div class="danger-box">
+      <div class="label">🔇 부작용 - 내 귀엔 안 들려요</div>
+      이렇게 하면 소리가 전부 CABLE로만 가서, <b>스피커/헤드폰으로는 소리가 안 나요.</b> STT는 잘 되는데 사람이 들을 수 없는 상태가 되는 거예요. 아래 03단계에서 이 문제를 해결해요.
+    </div>
+  </div>
+
+  <h2 class="section-title"><span class="num">03</span> 내 귀에도 들리게 만들기</h2>
+  <p class="section-desc">STT는 계속 잡히면서, 동시에 스피커로도 소리가 나가게 하는 설정이에요. 여기서 실수하면 오히려 소리가 울리거나 삐- 하는 피드백음이 날 수 있어요.</p>
+
+  <div class="step">
+    <div class="step-title">"이 장치 청취" 켜기</div>
+    <div class="breadcrumb">
+      <span class="seg">소리 설정</span><span class="sep">›</span>
+      <span class="seg">녹음 탭</span><span class="sep">›</span>
+      <span class="seg">CABLE Output 우클릭</span><span class="sep">›</span>
+      <span class="seg">속성</span><span class="sep">›</span>
+      <span class="seg">청취 탭</span>
+    </div>
+    <p style="margin-top:14px;"><code>이 장치를 청취합니다</code> 체크 → 재생 장치를 <b>내 실제 스피커/헤드폰</b>으로 지정하세요.</p>
+    <div class="warn-box">
+      <div class="label">⚠ 딱 한 곳에서만 켜세요</div>
+      "청취"는 <b>CABLE Output에서만</b> 켜야 해요. 만약 재생 장치를 실수로 CABLE Input 자신으로 지정하면, 소리가 스스로를 계속 되돌리면서 <b>삐- 하는 피드백음(경보음처럼 들림)</b>이 날 수 있어요. 이런 소리가 나면 바로 이 "청취" 체크를 끄고 재확인하세요.
+    </div>
+  </div>
+
+  <h2 class="section-title"><span class="num">04</span> STT 앱에서 마이크로 선택하기</h2>
+  <p class="section-desc">이제 브라우저 STT 앱의 마이크 목록에 CABLE Output이 보일 거예요.</p>
+
+  <div class="step">
+    <div class="step-title">앱에서 확인할 것</div>
+    <ul class="checklist">
+      <li><span class="box">☑</span> "녹음 장치" 드롭다운에서 <code>CABLE Output</code> 선택 (앱이 자동으로 골라줄 수도 있어요)</li>
+      <li><span class="box">☑</span> "원음 그대로(가상마이크용)" 체크 — VB-Cable로 들어오는 소리는 사람 목소리가 아니라서, 노이즈제거 기능을 끄는 게 더 깨끗하게 잡혀요</li>
+      <li><span class="box">☑</span> Windows 소리 설정에서 <b>기본 입력 장치</b>도 CABLE Output으로 되어 있는지 확인 (STT 자체는 이 "기본 장치"를 사용해요)</li>
+    </ul>
+  </div>
+
+  <h2 class="section-title"><span class="num">05</span> 노트북이라 VB-Cable을 못 깔 때</h2>
+  <p class="section-desc">일부 노트북은 별도 설치 없이 같은 기능을 이미 갖고 있어요.</p>
+  <div class="step">
+    <div class="step-title">스테레오 믹스(Stereo Mix) 확인</div>
+    <p>Realtek 오디오가 내장된 노트북이라면, 녹음 장치 목록에 <code>스테레오 믹스(Realtek(R) Audio)</code>가 이미 있을 수 있어요. 있으면 이게 VB-Cable과 똑같은 역할을 해요 — 설치 없이 그대로 쓰시면 됩니다.</p>
+    <div class="danger-box">
+      <div class="label">🔊 스테레오 믹스는 "청취"를 켜지 마세요</div>
+      VB-Cable과 달리 스테레오 믹스는 <b>스피커 소리를 그대로 복사해서 가져오는 방식</b>이라, 이미 스피커로 소리가 나가고 있어요. 여기에 "청취"까지 켜면 소리가 겹쳐서 울리는(에코) 문제가 생겨요. 스테레오 믹스는 청취 설정을 <b>건드리지 않고 그대로 두는 게 정답</b>이에요.
+    </div>
+  </div>
+
+  <h2 class="section-title"><span class="num">06</span> 자주 겪는 문제</h2>
+  <p class="section-desc">직접 겪었던 증상들 위주로 정리했어요. 항목을 눌러 펼쳐보세요.</p>
+
+  <div class="trouble-item">
+    <div class="trouble-q" onclick="toggleTrouble(this)">
+      <span>마이크는 신호가 잡히는데, 녹음해보면 소리가 없어요</span>
+      <span class="chev">+</span>
+    </div>
+    <div class="trouble-a"><div class="trouble-a-inner">
+      <p>십중팔구 노이즈제거(<code>noiseSuppression</code>) 때문이에요. 이 기능은 "사람 목소리"를 전제로 만들어져서, VB-Cable로 들어오는 시스템 소리를 노이즈로 착각해 억눌러버려요.</p>
+      <p><b>해결</b>: 앱의 "원음 그대로(가상마이크용)" 체크박스를 켜세요.</p>
+    </div></div>
+  </div>
+
+  <div class="trouble-item">
+    <div class="trouble-q" onclick="toggleTrouble(this)">
+      <span>소리가 울리거나 겹쳐 들려요 (에코)</span>
+      <span class="chev">+</span>
+    </div>
+    <div class="trouble-a"><div class="trouble-a-inner">
+      <p>스테레오 믹스를 쓰는데 "청취"를 켜셨거나, VB-Cable의 청취 재생 장치가 잘못 지정된 경우예요.</p>
+      <ol>
+        <li>스테레오 믹스라면 → 청취 설정을 <b>끄세요</b> (원래 필요 없음)</li>
+        <li>VB-Cable이라면 → 청취의 재생 장치가 <b>CABLE Input 자신이 아니라 실제 스피커</b>로 되어 있는지 확인</li>
+      </ol>
+    </div></div>
+  </div>
+
+  <div class="trouble-item">
+    <div class="trouble-q" onclick="toggleTrouble(this)">
+      <span>삐- 하는 피드백음(경보음)이 계속 나요</span>
+      <span class="chev">+</span>
+    </div>
+    <div class="trouble-a"><div class="trouble-a-inner">
+      <p>소리가 스스로를 반복해서 되돌리는 피드백 루프예요. 급하면 먼저 음소거하고, 원인을 찾으세요.</p>
+      <ol>
+        <li>녹음 탭 → 문제의 장치(스테레오 믹스/CABLE Output) → 속성 → 청취 탭 → 체크 <b>해제</b></li>
+        <li>그래도 안 멈추면 재부팅 (오디오 설정 꼬임은 재부팅으로 대부분 리셋됨)</li>
+      </ol>
+    </div></div>
+  </div>
+
+  <div class="trouble-item">
+    <div class="trouble-q" onclick="toggleTrouble(this)">
+      <span>재생장치 목록에 아무것도 안 뜨고 "출력 장치를 찾을 수 없습니다"라고 나와요</span>
+      <span class="chev">+</span>
+    </div>
+    <div class="trouble-a"><div class="trouble-a-inner">
+      <p>VB-Cable/가상장치 문제가 아니라, 노트북 자체의 오디오 드라이버가 꼬인 경우예요.</p>
+      <ol>
+        <li>Windows 오디오 문제 해결사 실행 (설정 → 시스템 → 소리 → 문제 해결)</li>
+        <li>장치 관리자에서 사운드 장치에 노란 느낌표(⚠) 있는지 확인</li>
+        <li>그래도 안 되면 재부팅, 최후엔 오디오 드라이버 재설치</li>
+      </ol>
+    </div></div>
+  </div>
+
+  <div class="trouble-item">
+    <div class="trouble-q" onclick="toggleTrouble(this)">
+      <span>녹음 장치 드롭다운에 "기본값"/"통신" CABLE Output이 두 개씩 보여요</span>
+      <span class="chev">+</span>
+    </div>
+    <div class="trouble-a"><div class="trouble-a-inner">
+      <p>정상이에요. Windows가 같은 장치를 "일반 용도"랑 "통화 앱 전용"으로 나눠서 두 번 보여주는 거예요. <b>"기본값 - CABLE Output"</b>을 선택하시면 됩니다.</p>
+    </div></div>
+  </div>
+
+</div>
+
+<footer>Speak, I'll Listen - Lingo Power</footer>
+
+<script>
+  function toggleTrouble(el) {
+    const item = el.parentElement;
+    const wasOpen = item.classList.contains('open');
+    document.querySelectorAll('.trouble-item.open').forEach(i => i.classList.remove('open'));
+    if (!wasOpen) item.classList.add('open');
+  }
+</script>
+
+</body>
+</html>
