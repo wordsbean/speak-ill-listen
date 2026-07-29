@@ -147,6 +147,30 @@
     <div class="video-wrapper" id="video-wrapper">
       <iframe id="yt-player" src="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>
       <video id="local-player" controls style="display:none;"></video>
+      <div id="audio-only-wrapper" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#111;padding:20px;">
+        <div id="audio-file-name" style="color:#ddd;font-size:0.9rem;text-align:center;word-break:break-all;"></div>
+        <div id="waveform-wrapper" style="position:relative;width:95%;max-width:600px;height:100px;background:#1a1a1a;border-radius:8px;overflow:hidden;cursor:pointer;">
+          <canvas id="waveform-canvas" style="width:100%;height:100%;display:block;"></canvas>
+          <div id="waveform-progress" style="position:absolute;top:0;left:0;height:100%;width:0%;background:rgba(59,130,246,0.28);border-right:2px solid #3b82f6;pointer-events:none;"></div>
+          <div id="waveform-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#666;font-size:0.8rem;">파형 분석 중...</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button id="btn-audio-playpause" style="width:44px;height:44px;border-radius:50%;font-size:1.1rem;padding:0;">▶</button>
+          <span id="audio-time-display" style="color:#aaa;font-size:0.8rem;font-family:monospace;">00:00 / 00:00</span>
+          <label style="font-size:0.75rem;color:#aaa;display:flex;align-items:center;gap:4px;">
+            🔊 재생 볼륨 증폭
+            <select id="playback-gain-select" style="font-size:0.75rem;padding:5px;">
+              <option value="1">1x (기본)</option>
+              <option value="2">2x</option>
+              <option value="3">3x</option>
+              <option value="5">5x</option>
+              <option value="8">8x</option>
+            </select>
+          </label>
+        </div>
+        <audio id="local-audio-player" style="display:none;"></audio>
+        <div style="color:#888;font-size:0.72rem;text-align:center;">▶ 재생하면서 STT 시작을 누르면, 이 소리가 VB-Cable을 통해 자막·번역·단어현황으로 바로 처리돼요</div>
+      </div>
       <div id="text-input-wrapper">
         <textarea id="text-paste-area" placeholder="여기에 텍스트를 붙여넣으세요. 문장 단위로 자동으로 나눠서 자막처럼 오른쪽에 쌓입니다."></textarea>
         <button id="btn-submit-text">자막으로 변환 ▶</button>
@@ -194,7 +218,7 @@
         <option value="vi">Tiếng Việt</option>
       </select>
       <label style="font-size:0.8rem;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap;">
-        <input type="checkbox" id="chk-record">🎙 동시 녹음(WebM)
+        <input type="checkbox" id="chk-record">🎙 동시 녹음(MP3)
       </label>
       <select id="record-device-select" style="font-size:0.75rem;padding:6px;max-width:160px;">
         <option value="">녹음 장치: 기본값</option>
@@ -290,6 +314,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="data/translate.js"></script>
+<script src="js/lame.all.min.js"></script>
 <script>
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -342,10 +367,14 @@
         ytPlayer.style.display = 'none';
         localPlayer.style.display = 'none';
         localPlayer.pause();
+        document.getElementById('audio-only-wrapper').style.display = 'none';
+        document.getElementById('local-audio-player').pause();
       } else if (currentMode === 'youtube') {
         ytPlayer.style.display = 'block';
         localPlayer.style.display = 'none';
         localPlayer.pause();
+        document.getElementById('audio-only-wrapper').style.display = 'none';
+        document.getElementById('local-audio-player').pause();
       } else {
         ytPlayer.style.display = 'none';
       }
@@ -372,9 +401,122 @@
     if (!file) return;
     const fileURL = URL.createObjectURL(file);
     ytPlayer.style.display = 'none'; ytPlayer.src = '';
-    localPlayer.style.display = 'block';
-    localPlayer.src = fileURL;
-    localPlayer.play();
+    document.getElementById('doc-only-wrapper').style.display = 'none';
+    document.getElementById('mic-only-wrapper').style.display = 'none';
+
+    const isAudioOnly = file.type.startsWith('audio/') || /\.(mp3|wav|m4a|ogg|aac|flac|webm|opus)$/i.test(file.name);
+    if (isAudioOnly) {
+      localPlayer.style.display = 'none'; localPlayer.pause(); localPlayer.src = '';
+      document.getElementById('audio-only-wrapper').style.display = 'flex';
+      document.getElementById('audio-file-name').textContent = file.name;
+      const audioEl = document.getElementById('local-audio-player');
+      const docStatusEl = document.getElementById('audio-file-name');
+      audioEl.onerror = () => {
+        const errCode = audioEl.error ? audioEl.error.code : '?';
+        const errNames = { 1: 'MEDIA_ERR_ABORTED', 2: 'MEDIA_ERR_NETWORK', 3: 'MEDIA_ERR_DECODE', 4: 'MEDIA_ERR_SRC_NOT_SUPPORTED' };
+        docStatusEl.textContent = `${file.name} — ⚠ 재생 오류 (${errNames[errCode] || errCode}): 이 형식/코덱을 브라우저가 재생하지 못해요.`;
+      };
+      audioEl.src = fileURL;
+      if (playbackAudioCtx && playbackAudioCtx.state === 'suspended') playbackAudioCtx.resume();
+      audioEl.play().catch((err) => {
+        console.warn('오디오 재생 실패:', err);
+        docStatusEl.textContent = `${file.name} — ⚠ 재생 실패: ${err.name} (${err.message})`;
+      });
+      drawWaveformFromFile(file);
+    } else {
+      document.getElementById('audio-only-wrapper').style.display = 'none';
+      localPlayer.style.display = 'block';
+      localPlayer.src = fileURL;
+      localPlayer.play();
+    }
+  });
+
+  /* ---------- 2.5 파형(waveform) 그리기 + 커스텀 오디오 플레이어 ---------- */
+  function formatTime(sec) {
+    if (!isFinite(sec)) return '00:00';
+    const m = String(Math.floor(sec / 60)).padStart(2, '0');
+    const s = String(Math.floor(sec % 60)).padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  async function drawWaveformFromFile(file) {
+    const loadingEl = document.getElementById('waveform-loading');
+    const canvas = document.getElementById('waveform-canvas');
+    loadingEl.style.display = 'flex';
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      const rawData = audioBuffer.getChannelData(0); // 첫 채널만 사용
+
+      const dpr = window.devicePixelRatio || 1;
+      const displayWidth = canvas.clientWidth || 600;
+      const displayHeight = canvas.clientHeight || 100;
+      canvas.width = displayWidth * dpr;
+      canvas.height = displayHeight * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+      const barCount = Math.floor(displayWidth / 3); // 3px당 막대 하나
+      const samplesPerBar = Math.floor(rawData.length / barCount);
+      const mid = displayHeight / 2;
+
+      for (let i = 0; i < barCount; i++) {
+        let sum = 0;
+        const start = i * samplesPerBar;
+        for (let j = 0; j < samplesPerBar; j++) sum += Math.abs(rawData[start + j] || 0);
+        const avg = sum / samplesPerBar;
+        const barHeight = Math.max(1, avg * displayHeight * 3.2); // 시각적으로 좀 더 잘 보이게 증폭
+        ctx.fillStyle = '#4b5563';
+        ctx.fillRect(i * 3, mid - barHeight / 2, 2, barHeight);
+      }
+      audioCtx.close().catch(() => {});
+    } catch (e) {
+      console.warn('파형 분석 실패:', e);
+    }
+    loadingEl.style.display = 'none';
+  }
+
+  const audioPlayerEl = document.getElementById('local-audio-player');
+  const btnPlayPause = document.getElementById('btn-audio-playpause');
+  const waveformProgress = document.getElementById('waveform-progress');
+  const waveformWrapper = document.getElementById('waveform-wrapper');
+
+  // 재생 볼륨 증폭 체인 - <audio> 태그는 기본 100%가 한계라, GainNode로 그 이상 끌어올림
+  // (MediaElementSource는 같은 엘리먼트당 딱 한 번만 만들 수 있어서 페이지 로드시 한 번만 구성)
+  let playbackGainNode = null;
+  let playbackAudioCtx = null;
+  try {
+    playbackAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const mediaSource = playbackAudioCtx.createMediaElementSource(audioPlayerEl);
+    playbackGainNode = playbackAudioCtx.createGain();
+    mediaSource.connect(playbackGainNode);
+    playbackGainNode.connect(playbackAudioCtx.destination);
+  } catch (e) {
+    console.warn('재생 볼륨 증폭 체인 구성 실패 (일반 볼륨으로만 재생됨):', e);
+  }
+  document.getElementById('playback-gain-select').addEventListener('change', (e) => {
+    if (playbackGainNode) playbackGainNode.gain.value = parseFloat(e.target.value) || 1;
+  });
+
+  btnPlayPause.addEventListener('click', () => {
+    if (playbackAudioCtx && playbackAudioCtx.state === 'suspended') playbackAudioCtx.resume();
+    if (audioPlayerEl.paused) audioPlayerEl.play(); else audioPlayerEl.pause();
+  });
+  audioPlayerEl.addEventListener('play', () => { btnPlayPause.textContent = '⏸'; });
+  audioPlayerEl.addEventListener('pause', () => { btnPlayPause.textContent = '▶'; });
+  audioPlayerEl.addEventListener('timeupdate', () => {
+    const pct = audioPlayerEl.duration ? (audioPlayerEl.currentTime / audioPlayerEl.duration) * 100 : 0;
+    waveformProgress.style.width = pct + '%';
+    document.getElementById('audio-time-display').textContent =
+      `${formatTime(audioPlayerEl.currentTime)} / ${formatTime(audioPlayerEl.duration)}`;
+  });
+  waveformWrapper.addEventListener('click', (e) => {
+    if (!audioPlayerEl.duration) return;
+    const rect = waveformWrapper.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    audioPlayerEl.currentTime = ratio * audioPlayerEl.duration;
   });
 
   /* ---------- 3. 텍스트 붙여넣기 모드 ---------- */
@@ -961,10 +1103,8 @@
     if (micOnlyStatus) micOnlyStatus.textContent = '🎚 "마이크 테스트"를 눌러 신호를 먼저 확인해보세요';
   }
 
-  /* ---------- 9. STT 시작/중지 + (선택) 동시 녹음 개선 버전 ---------- */
+  /* ---------- 9. STT 시작/중지 + (선택) 동시 녹음 (WAV) ---------- */
   let recordingStartTime = null; // 런닝타임 기준점 (자막 세션 시작 시각) - 녹음 체크와 무관하게 항상 기록
-  let mediaRecorder = null;
-  let recordedChunks = [];
   let recordStream = null;
 
   // 마이크/가상장치(VB-Cable 등) 목록 채우기 - 권한을 한 번 받아야 장치 "이름"까지 보임
@@ -1003,7 +1143,68 @@
     document.getElementById('chk-raw-audio').checked = isVirtualDeviceLabel(label);
   });
 
-  let gainAudioCtx = null; // 녹음용 게인부스트 오디오 컨텍스트 (정지할 때 같이 닫아줘야 함)
+  let gainAudioCtx = null; // 녹음용 게인부스트 + PCM 캡처를 함께 담당하는 오디오 컨텍스트
+  let recordingProcessor = null;
+  let recordingSourceNode = null;
+  let pcmChunks = []; // Float32Array 조각들 (모노)
+  let recordingSampleRate = 44100;
+
+  function encodeWavFromPcm(pcmFloat32, sampleRate) {
+    const numSamples = pcmFloat32.length;
+    const buffer = new ArrayBuffer(44 + numSamples * 2);
+    const view = new DataView(buffer);
+    function writeString(offset, str) { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); }
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);       // fmt 청크 크기
+    view.setUint16(20, 1, true);        // PCM 포맷
+    view.setUint16(22, 1, true);        // 모노(채널 1개)
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true); // byte rate (mono, 16bit)
+    view.setUint16(32, 2, true);        // block align
+    view.setUint16(34, 16, true);       // bits per sample
+    writeString(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+
+    let offset = 44;
+    for (let i = 0; i < numSamples; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, pcmFloat32[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    return new Blob([buffer], { type: 'audio/wav' });
+  }
+
+  // lamejs로 MP3 인코딩 (js/lame.all.min.js 로컬 로드). 라이브러리가 없으면 WAV로 자동 대체됨.
+  function encodeMp3FromPcm(pcmFloat32, sampleRate, kbps) {
+    kbps = kbps || 128;
+    // lamejs가 지원하는 표준 샘플레이트로 맞춰줌 (브라우저 기본값이 44100/48000이 아닌 경우 대비)
+    const supportedRates = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];
+    const encodeSampleRate = supportedRates.includes(sampleRate) ? sampleRate : 44100;
+
+    const mp3encoder = new lamejs.Mp3Encoder(1, encodeSampleRate, kbps); // 모노
+    const mp3Data = [];
+    const sampleBlockSize = 1152; // lamejs 권장 블록 크기
+
+    // Float32(-1~1) -> Int16 PCM 변환
+    const int16Samples = new Int16Array(pcmFloat32.length);
+    for (let i = 0; i < pcmFloat32.length; i++) {
+      const s = Math.max(-1, Math.min(1, pcmFloat32[i]));
+      int16Samples[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+
+    for (let i = 0; i < int16Samples.length; i += sampleBlockSize) {
+      const chunk = int16Samples.subarray(i, i + sampleBlockSize);
+      const mp3buf = mp3encoder.encodeBuffer(chunk);
+      if (mp3buf.length > 0) mp3Data.push(mp3buf);
+    }
+    const finalBuf = mp3encoder.flush();
+    if (finalBuf.length > 0) mp3Data.push(finalBuf);
+
+    return new Blob(mp3Data, { type: 'audio/mp3' });
+  }
 
   async function startRecording() {
     try {
@@ -1023,28 +1224,30 @@
         throw new Error('오디오 트랙을 가져올 수 없거나 비활성화되어 있습니다.');
       }
 
-      // 마이크 증폭(GainNode) - 선택한 배율만큼 볼륨을 키워서 녹음용 스트림으로 재구성
+      // WAV로 직접 녹음 - MediaRecorder(WebM) 대신 Web Audio API로 원본 PCM 샘플을 그대로 받아서
+      // WAV 파일로 조립함. 외부 라이브러리/코덱 의존성이 전혀 없어서 재생 안정성이 가장 높음.
+      // (나중에 용량 줄이고 싶으면 이 WAV를 lamejs로 MP3 변환하는 단계를 추가하면 됨)
       const gainValue = parseFloat(document.getElementById('gain-boost-select').value) || 1;
-      let streamForRecorder = recordStream;
-      if (gainValue !== 1) {
-        gainAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const source = gainAudioCtx.createMediaStreamSource(recordStream);
-        const gainNode = gainAudioCtx.createGain();
-        gainNode.gain.value = gainValue;
-        const destination = gainAudioCtx.createMediaStreamDestination();
-        source.connect(gainNode);
-        gainNode.connect(destination);
-        streamForRecorder = destination.stream;
-        console.log(`마이크 증폭 적용됨: ${gainValue}x`);
-      }
-
-      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
-        .find(t => MediaRecorder.isTypeSupported(t)) || '';
-      mediaRecorder = new MediaRecorder(streamForRecorder, mimeType ? { mimeType } : undefined);
-      recordedChunks = [];
-      mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordedChunks.push(e.data); };
-      mediaRecorder.start(1000); // 1초마다 청크 - 중간에 끊겨도 최대한 복구 가능하게
-      console.log('녹음 정상 시작됨:', mimeType || '(기본 포맷)');
+      gainAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      recordingSampleRate = gainAudioCtx.sampleRate;
+      recordingSourceNode = gainAudioCtx.createMediaStreamSource(recordStream);
+      const gainNode = gainAudioCtx.createGain();
+      gainNode.gain.value = gainValue;
+      recordingProcessor = gainAudioCtx.createScriptProcessor(4096, 1, 1);
+      pcmChunks = [];
+      recordingProcessor.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        pcmChunks.push(new Float32Array(input)); // 복사본 저장 (버퍼가 재사용되므로 꼭 복사해야 함)
+      };
+      // 무음 게인(0) 경유해서 destination에 연결 - 이래야 크롬이 processor를 계속 돌려주면서도
+      // 녹음 중인 소리가 스피커로 다시 새어나가 에코/피드백이 생기는 걸 방지함
+      const silentGain = gainAudioCtx.createGain();
+      silentGain.gain.value = 0;
+      recordingSourceNode.connect(gainNode);
+      gainNode.connect(recordingProcessor);
+      recordingProcessor.connect(silentGain);
+      silentGain.connect(gainAudioCtx.destination);
+      console.log(`녹음 시작됨 (샘플레이트 ${recordingSampleRate}Hz, 증폭 ${gainValue}x, 저장형식은 종료시 lamejs 유무로 결정)`);
     } catch (e) {
       console.warn('녹음 시작 실패 (STT는 계속 진행됩니다):', e);
       alert('녹음을 시작하지 못했습니다 (마이크 권한 또는 다른 앱의 마이크 점유 상태를 확인하세요). STT 자막은 계속 진행됩니다.\n' + e.message);
@@ -1053,28 +1256,58 @@
   }
 
   function stopRecording() {
-    if (!mediaRecorder) return;
-    const recorder = mediaRecorder; // stop 이벤트가 비동기로 나중에 발생하므로, 콜백 안에서 쓸 참조를 미리 잡아둠
-    recorder.addEventListener('stop', () => {
-      if (!recordedChunks.length) return;
-      const blob = new Blob(recordedChunks, { type: recorder.mimeType || 'audio/webm' });
-      if (blob.size === 0) {
-        alert('녹음 데이터 크기가 0바이트예요. 마이크가 실제로 소리를 받고 있는지 확인해주세요 (Windows: 마이크 속성 → 고급 탭 → "단독 사용 모드" 해제).');
-        return;
+    if (!gainAudioCtx) return;
+    try {
+      if (recordingProcessor) { recordingProcessor.disconnect(); recordingProcessor.onaudioprocess = null; }
+      if (recordingSourceNode) recordingSourceNode.disconnect();
+    } catch (e) { /* 이미 끊겼으면 무시 */ }
+
+    if (!pcmChunks.length) {
+      gainAudioCtx.close().catch(() => {});
+      gainAudioCtx = null;
+      if (recordStream) recordStream.getTracks().forEach(t => t.stop());
+      return;
+    }
+
+    const totalLength = pcmChunks.reduce((sum, c) => sum + c.length, 0);
+    const merged = new Float32Array(totalLength);
+    let offset = 0;
+    for (const chunk of pcmChunks) { merged.set(chunk, offset); offset += chunk.length; }
+
+    let blob, ext, formatLabel;
+    if (window.lamejs) {
+      try {
+        blob = encodeMp3FromPcm(merged, recordingSampleRate, 128);
+        ext = 'mp3'; formatLabel = 'MP3';
+      } catch (e) {
+        console.warn('MP3 인코딩 실패, WAV로 대체합니다:', e);
+        blob = encodeWavFromPcm(merged, recordingSampleRate);
+        ext = 'wav'; formatLabel = 'WAV';
       }
+    } else {
+      console.warn('lamejs를 못 찾아서 WAV로 저장합니다 (js/lame.all.min.js 확인 필요)');
+      blob = encodeWavFromPcm(merged, recordingSampleRate);
+      ext = 'wav'; formatLabel = 'WAV';
+    }
+
+    if (blob.size === 0) { // 인코딩 결과 자체가 비어있는 경우
+      alert('녹음 데이터가 없어요. 마이크가 실제로 소리를 받고 있는지 확인해주세요 (Windows: 마이크 속성 → 고급 탭 → "단독 사용 모드" 해제).');
+    } else {
       const url = URL.createObjectURL(blob);
       const link = document.getElementById('recording-download-link');
-      const ext = (recorder.mimeType || '').includes('ogg') ? 'ogg' : 'webm';
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
       link.href = url;
       link.download = `lingopower_recording_${ts}.${ext}`;
       link.style.display = 'inline-block';
-      link.textContent = `🎙 녹음 다운로드 (${(blob.size / 1024 / 1024).toFixed(1)}MB)`;
-    }, { once: true });
-    if (recorder.state !== 'inactive') recorder.stop();
+      link.textContent = `🎙 녹음 다운로드 ${formatLabel} (${(blob.size / 1024 / 1024).toFixed(1)}MB)`;
+    }
+
     if (recordStream) recordStream.getTracks().forEach(t => t.stop());
-    if (gainAudioCtx) { gainAudioCtx.close().catch(() => {}); gainAudioCtx = null; }
-    mediaRecorder = null;
+    gainAudioCtx.close().catch(() => {});
+    gainAudioCtx = null;
+    recordingProcessor = null;
+    recordingSourceNode = null;
+    pcmChunks = [];
   }
 
   btnStt.addEventListener('click', async () => {
